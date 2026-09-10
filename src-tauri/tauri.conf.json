@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Markdown Preview",
+  "productName": "md-viewer",
   "version": "0.1.0",
   "identifier": "com.mdviewer.app",
   "build": {
