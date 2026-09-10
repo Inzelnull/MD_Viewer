@@ -12,16 +12,6 @@ Visual Studio Code の Markdown Preview のような、リッチで高速なMark
 
 ---
 
-## 📸 スクリーンショット
-
-### 🌙 ダークモード（目次サイドバー・KaTeX数式・シンタックスハイライト・Mermaid図・GitHubアラート）
-![Dark Mode Preview](./docs/screenshots/preview_dark.png)
-
-### ☀️ ライトモード（クリーンなUI・GFMテーブル・アラート・ツールバー）
-![Light Mode Preview](./docs/screenshots/preview_light.png)
-
----
-
 ## ✨ 主な機能
 
 1. **リッチなMarkdownレンダリング (GFM対応)**
