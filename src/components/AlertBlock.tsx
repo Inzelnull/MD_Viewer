@@ -7,13 +7,21 @@ import {
   Flame,
 } from 'lucide-react';
 
+/**
+ * サポートするGitHub Alertの種類
+ */
 export type AlertType = 'note' | 'tip' | 'important' | 'warning' | 'caution';
 
 interface AlertBlockProps {
+  /** アラート種別 */
   type: AlertType;
+  /** アラート本文 */
   children: React.ReactNode;
 }
 
+/**
+ * 各アラート種別のタイトル、アイコン、CSSクラス定義
+ */
 const alertConfig: Record<
   AlertType,
   { title: string; icon: React.ReactNode; className: string }
@@ -45,6 +53,10 @@ const alertConfig: Record<
   },
 };
 
+/**
+ * GitHub Alerts 構文（> [!NOTE] など）を GitHub / VS Code スタイルの
+ * 装飾カードブロックとして表示するコンポーネント
+ */
 export const AlertBlock: React.FC<AlertBlockProps> = ({ type, children }) => {
   const config = alertConfig[type] || alertConfig.note;
 

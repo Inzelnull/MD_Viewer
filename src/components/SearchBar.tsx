@@ -2,16 +2,27 @@ import React, { useEffect, useRef } from 'react';
 import { Search, ChevronUp, ChevronDown, X } from 'lucide-react';
 
 interface SearchBarProps {
+  /** 検索バーの表示状態 */
   isOpen: boolean;
+  /** 検索バーを閉じる関数 */
   onClose: () => void;
+  /** 検索文字列 */
   query: string;
+  /** 検索文字列変更ハンドラ */
   onQueryChange: (q: string) => void;
+  /** 次の一致箇所へ移動 */
   onNext: () => void;
+  /** 前の一致箇所へ移動 */
   onPrev: () => void;
+  /** 現在の一致インデックス */
   matchIndex: number;
+  /** 一致した総件数 */
   totalMatches: number;
 }
 
+/**
+ * 文書内検索用のフローティングバーコンポーネント (Ctrl+F)
+ */
 export const SearchBar: React.FC<SearchBarProps> = ({
   isOpen,
   onClose,
@@ -24,6 +35,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
 }) => {
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // 検索バーが開いたときに入力欄へフォーカス
   useEffect(() => {
     if (isOpen && inputRef.current) {
       inputRef.current.focus();
@@ -33,6 +45,9 @@ export const SearchBar: React.FC<SearchBarProps> = ({
 
   if (!isOpen) return null;
 
+  /**
+   * キーボード操作のハンドリング（Enter: 次へ、Shift+Enter: 前へ、Esc: 閉じる）
+   */
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Escape') {
       onClose();
@@ -52,19 +67,19 @@ export const SearchBar: React.FC<SearchBarProps> = ({
         ref={inputRef}
         type="text"
         className="search-input"
-        placeholder="Find in document..."
+        placeholder="文書内を検索..."
         value={query}
         onChange={(e) => onQueryChange(e.target.value)}
         onKeyDown={handleKeyDown}
       />
       <span className="search-count">
-        {totalMatches > 0 ? `${matchIndex + 1} of ${totalMatches}` : query ? 'No matches' : ''}
+        {totalMatches > 0 ? `${matchIndex + 1} / ${totalMatches}` : query ? '一致なし' : ''}
       </span>
       <button
         className="btn btn-icon"
         onClick={onPrev}
         disabled={totalMatches === 0}
-        title="Previous match (Shift+Enter)"
+        title="前の一致箇所へ (Shift+Enter)"
       >
         <ChevronUp size={14} />
       </button>
@@ -72,11 +87,11 @@ export const SearchBar: React.FC<SearchBarProps> = ({
         className="btn btn-icon"
         onClick={onNext}
         disabled={totalMatches === 0}
-        title="Next match (Enter)"
+        title="次の一致箇所へ (Enter)"
       >
         <ChevronDown size={14} />
       </button>
-      <button className="btn btn-icon" onClick={onClose} title="Close search (Esc)">
+      <button className="btn btn-icon" onClick={onClose} title="検索を閉じる (Esc)">
         <X size={14} />
       </button>
     </div>
