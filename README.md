@@ -7,8 +7,18 @@
 [![Vite](https://img.shields.io/badge/Vite-v6-646CFF.svg?logo=vite&logoColor=white)](https://vite.dev/)
 [![License](https://img.shields.io/badge/License-MIT-brightgreen.svg)](LICENSE)
 
-Visual Studio Code の Markdown Preview のような、リッチなMarkdown閲覧専用GUIアプリケーションです。
+Visual Studio Code の Markdown Preview のような、リッチで高速なMarkdown閲覧専用デスクトップGUIアプリケーションです。
 **Tauri v2** + **React** + **TypeScript** + **Vite** で構築されています。
+
+---
+
+## 📸 スクリーンショット
+
+### 🌙 ダークモード（目次サイドバー・KaTeX数式・シンタックスハイライト・Mermaid図・GitHubアラート）
+![Dark Mode Preview](./docs/screenshots/preview_dark.png)
+
+### ☀️ ライトモード（クリーンなUI・GFMテーブル・アラート・ツールバー）
+![Light Mode Preview](./docs/screenshots/preview_light.png)
 
 ---
 
@@ -32,13 +42,27 @@ Visual Studio Code の Markdown Preview のような、リッチなMarkdown閲�
    - **ホワイトモード**
    - **ダークモード**
    - 設定は次回起動時にも自動で引き継がれます
-5. **全画面モード & ズーム**
+5. **デュアルディスプレイ・マルチモニター対応**
+   - 実行ファイルやMarkdownファイルを起動したフォルダー（エクスプローラー）があるディスプレイを自動検出し、その画面の中央に起動します
+6. **全画面モード & ズーム**
    - F11キーまたはツールバーボタンで全画面表示の切り替え
    - 拡大・縮小（60% 〜 200%）
-6. **ファイル操作 & ドラッグ＆ドロップ**
+7. **ファイル操作 & ドラッグ＆ドロップ**
    - ファイル選択ダイアログ (`Ctrl+O`)
    - ウィンドウへの `.md` ファイルのドラッグ＆ドロップ対応
    - 印刷 / PDF保存 (`Ctrl+P`)
+
+---
+
+## 💾 実行ファイル・インストーラーの配置場所
+
+プロダクションビルド済みの実行ファイルおよびインストーラーは、以下のパスに出力されます。
+
+| 種別 | パス | 説明 |
+| :--- | :--- | :--- |
+| **単体実行ファイル (ポータブル版)** | [`src-tauri/target/release/md-viewer.exe`](./src-tauri/target/release/md-viewer.exe) | インストール不要で即時起動可能なスタンドアロンEXE |
+| **NSIS インストーラー** | [`src-tauri/target/release/bundle/nsis/md-viewer_0.1.0_x64-setup.exe`](./src-tauri/target/release/bundle/nsis/md-viewer_0.1.0_x64-setup.exe) | 標準的なWindows向けセットアップインストーラー |
+| **WiX / MSI インストーラー** | [`src-tauri/target/release/bundle/msi/md-viewer_0.1.0_x64_en-US.msi`](./src-tauri/target/release/bundle/msi/md-viewer_0.1.0_x64_en-US.msi) | 企業導入や一括配布に適したWindows Installerパッケージ |
 
 ---
 
@@ -57,7 +81,7 @@ Visual Studio Code の Markdown Preview のような、リッチなMarkdown閲�
 
 ---
 
-## 🚀 開発・起動手順
+## 🚀 開発・ビルド手順
 
 ### 動作前提条件
 - **Node.js**: v18+
@@ -76,6 +100,7 @@ npm.cmd run tauri dev
 ```bash
 npm.cmd run tauri build
 ```
+ビルド完了後、上記の「実行ファイル・インストーラーの配置場所」に各バイナリが生成されます。
 
 ---
 

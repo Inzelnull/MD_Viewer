@@ -200,6 +200,33 @@ fn extract_target_file_from_args(args: &[String]) -> Option<String> {
     None
 }
 
+#[cfg(target_os = "windows")]
+mod win_cursor {
+    #[repr(C)]
+    #[derive(Clone, Copy, Debug)]
+    pub struct POINT {
+        pub x: i32,
+        pub y: i32,
+    }
+
+    #[link(name = "user32")]
+    extern "system" {
+        pub fn GetCursorPos(lpPoint: *mut POINT) -> i32;
+    }
+
+    /// 起動時のマウスカーソル座標を取得します
+    pub fn get_cursor_pos() -> Option<(i32, i32)> {
+        let mut pt = POINT { x: 0, y: 0 };
+        unsafe {
+            if GetCursorPos(&mut pt) != 0 {
+                Some((pt.x, pt.y))
+            } else {
+                None
+            }
+        }
+    }
+}
+
 /// Tauri アプリケーションの初期化と起動
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -212,6 +239,57 @@ pub fn run() {
         .manage(WatcherState::default())
         // 初期ファイルパスの状態管理
         .manage(InitialFileState(Mutex::new(initial_file)))
+        // デュアルディスプレイ対応：起動元画面へのウィンドウ配置
+        .setup(|app| {
+            if let Some(window) = app.get_webview_window("main") {
+                #[cfg(target_os = "windows")]
+                {
+                    if let Some((cx, cy)) = win_cursor::get_cursor_pos() {
+                        if let Ok(monitors) = window.available_monitors() {
+                            // カーソルが存在するモニター（実行ファイルを起動した画面）を検出
+                            let target_monitor = monitors.into_iter().find(|m| {
+                                let pos = m.position();
+                                let size = m.size();
+                                cx >= pos.x
+                                    && cx < pos.x + size.width as i32
+                                    && cy >= pos.y
+                                    && cy < pos.y + size.height as i32
+                            });
+
+                            if let Some(monitor) = target_monitor {
+                                let m_pos = monitor.position();
+                                let m_size = monitor.size();
+                                let win_size = window
+                                    .outer_size()
+                                    .unwrap_or(tauri::PhysicalSize::new(1100, 750));
+
+                                let x = m_pos.x
+                                    + ((m_size.width as i32 - win_size.width as i32) / 2).max(0);
+                                let y = m_pos.y
+                                    + ((m_size.height as i32 - win_size.height as i32) / 2).max(0);
+
+                                let _ = window.set_position(tauri::Position::Physical(
+                                    tauri::PhysicalPosition::new(x, y),
+                                ));
+                            } else {
+                                let _ = window.center();
+                            }
+                        }
+                    } else {
+                        let _ = window.center();
+                    }
+                }
+                #[cfg(not(target_os = "windows"))]
+                {
+                    let _ = window.center();
+                }
+
+                // 画面配置完了後に表示してフォーカス
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
+            Ok(())
+        })
         // シングルインスタンスプラグイン（2重起動防止 & 既存ウィンドウへファイルを開くリクエストを送信）
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
             if let Some(file_path) = extract_target_file_from_args(&args) {
