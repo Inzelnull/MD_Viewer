@@ -1,5 +1,12 @@
 # Markdown Preview GUI Viewer
 
+[![Tauri Version](https://img.shields.io/badge/Tauri-v2-24C8D8.svg?logo=tauri&logoColor=white)](https://tauri.app/)
+[![Rust](https://img.shields.io/badge/Rust-2021_Edition-orange.svg?logo=rust)](https://www.rust-lang.org/)
+[![React](https://img.shields.io/badge/React-v19-61DAFB.svg?logo=react&logoColor=black)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-v5-3178C6.svg?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Vite](https://img.shields.io/badge/Vite-v6-646CFF.svg?logo=vite&logoColor=white)](https://vite.dev/)
+[![License](https://img.shields.io/badge/License-MIT-brightgreen.svg)](LICENSE)
+
 Visual Studio Code の Markdown Preview のような、リッチなMarkdown閲覧専用GUIアプリケーションです。
 **Tauri v2** + **React** + **TypeScript** + **Vite** で構築されています。
 
