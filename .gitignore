@@ -22,5 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 # Rust target directory
-src-tauri/target/
-target/
+src-tauri/target/*
+!src-tauri/target/release/
+src-tauri/target/release/*
+!src-tauri/target/release/md-viewer.exe
+!src-tauri/target/release/bundle/
+!src-tauri/target/release/bundle/**
