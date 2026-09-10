@@ -9,7 +9,6 @@ import { MarkdownView } from './components/MarkdownView';
 import { SearchBar } from './components/SearchBar';
 import { WelcomeView } from './components/WelcomeView';
 
-import { extractToc } from './utils/toc';
 import { sampleMarkdown } from './utils/sampleMarkdown';
 import {
   MarkdownFileInfo,
@@ -48,6 +47,7 @@ export function App() {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [activeHeadingId, setActiveHeadingId] = useState<string>('');
   const [isWatching, setIsWatching] = useState<boolean>(false);
+  const [tocItems, setTocItems] = useState<TocItem[]>([]);
 
   const previewContainerRef = useRef<HTMLDivElement>(null);
 
@@ -182,12 +182,7 @@ export function App() {
     };
   }, [loadFileByPath]);
 
-  // Extract TOC and calculate metadata
-  const tocItems: TocItem[] = useMemo(() => {
-    if (!currentFile) return [];
-    return extractToc(currentFile.content);
-  }, [currentFile]);
-
+  // Calculate file metadata
   const metadata: FileMetadata | null = useMemo(() => {
     if (!currentFile) return null;
     const content = currentFile.content;
@@ -236,14 +231,22 @@ export function App() {
     return () => container.removeEventListener('scroll', handleScroll);
   }, [currentFile]);
 
-  // Heading selection from TOC
-  const handleSelectHeading = (id: string) => {
-    const el = document.getElementById(id);
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth' });
+  // TOC click handler: smoothly scroll to exact heading position inside previewContainer
+  const handleSelectHeading = useCallback((id: string) => {
+    const container = previewContainerRef.current;
+    const target = document.getElementById(id);
+    if (target && container) {
+      const containerRect = container.getBoundingClientRect();
+      const targetRect = target.getBoundingClientRect();
+      const scrollOffset = targetRect.top - containerRect.top + container.scrollTop - 24;
+
+      container.scrollTo({
+        top: Math.max(0, scrollOffset),
+        behavior: 'smooth',
+      });
       setActiveHeadingId(id);
     }
-  };
+  }, []);
 
   // Zoom handlers
   const handleZoomIn = () => setZoomLevel((z) => Math.min(2.0, parseFloat((z + 0.1).toFixed(1))));
@@ -336,6 +339,7 @@ export function App() {
               content={currentFile.content}
               parentDir={currentFile.parentDir}
               zoomLevel={zoomLevel}
+              onHeadingsExtracted={setTocItems}
             />
           ) : (
             <WelcomeView

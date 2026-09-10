@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
@@ -12,6 +12,7 @@ import { openUrl } from '@tauri-apps/plugin-opener';
 import { CodeBlock } from './CodeBlock';
 import { MermaidBlock } from './MermaidBlock';
 import { AlertBlock, AlertType } from './AlertBlock';
+import { TocItem } from '../types/markdown';
 
 import 'katex/dist/katex.min.css';
 import 'highlight.js/styles/vs2015.css';
@@ -20,6 +21,7 @@ interface MarkdownViewProps {
   content: string;
   parentDir: string;
   zoomLevel: number;
+  onHeadingsExtracted?: (headings: TocItem[]) => void;
 }
 
 // Custom Async Image component to load local relative images via Tauri Rust backend
@@ -69,13 +71,47 @@ export const MarkdownView: React.FC<MarkdownViewProps> = ({
   content,
   parentDir,
   zoomLevel,
+  onHeadingsExtracted,
 }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Extract actual headings directly from the rendered DOM for 100% accurate TOC linking
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (!containerRef.current || !onHeadingsExtracted) return;
+
+      const headingElements = containerRef.current.querySelectorAll<HTMLElement>(
+        'h1, h2, h3, h4, h5, h6'
+      );
+
+      const items: TocItem[] = [];
+      headingElements.forEach((el, index) => {
+        // Ensure element has an ID
+        if (!el.id) {
+          el.id = `heading-auto-${index + 1}`;
+        }
+        const level = parseInt(el.tagName.replace('H', ''), 10) || 1;
+        const text = el.textContent?.trim() || `Section ${index + 1}`;
+
+        items.push({
+          id: el.id,
+          text,
+          level,
+        });
+      });
+
+      onHeadingsExtracted(items);
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, [content, onHeadingsExtracted]);
+
   const handleLinkClick = async (e: React.MouseEvent<HTMLAnchorElement>, href?: string) => {
     if (!href) return;
 
     if (href.startsWith('#')) {
       e.preventDefault();
-      const targetId = href.substring(1);
+      const targetId = decodeURIComponent(href.substring(1));
       const targetElement = document.getElementById(targetId);
       if (targetElement) {
         targetElement.scrollIntoView({ behavior: 'smooth' });
@@ -95,6 +131,7 @@ export const MarkdownView: React.FC<MarkdownViewProps> = ({
 
   return (
     <div
+      ref={containerRef}
       className="markdown-body"
       style={{
         transform: `scale(${zoomLevel})`,
@@ -148,7 +185,6 @@ export const MarkdownView: React.FC<MarkdownViewProps> = ({
 
               if (alertMatch) {
                 const alertType = alertMatch[1].toLowerCase() as AlertType;
-                // Remove the [!ALERT] header from the first child text
                 const cleanedChildren = React.Children.map(firstChild.props.children, (child) => {
                   if (typeof child === 'string') {
                     return child.replace(/^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]/i, '').trim();
