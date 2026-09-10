@@ -187,6 +187,36 @@ export function App() {
   };
 
   /**
+   * アプリ起動時にコマンドライン引数（Windowsファイル関連付けなど）で渡されたファイルを確認して読み込み
+   */
+  useEffect(() => {
+    invoke<string | null>('get_initial_file')
+      .then((initialFile) => {
+        if (initialFile) {
+          loadFileByPath(initialFile);
+        }
+      })
+      .catch((err) => {
+        console.warn('初期ファイルの取得に失敗しました:', err);
+      });
+  }, [loadFileByPath]);
+
+  /**
+   * 既にアプリが起動している状態で別のmdファイルを開いた時（シングルインスタンス連携）のリスナー
+   */
+  useEffect(() => {
+    const unlistenPromise = listen<string>('open-file-requested', async (event) => {
+      if (event.payload) {
+        await loadFileByPath(event.payload);
+      }
+    });
+
+    return () => {
+      unlistenPromise.then((unlisten) => unlisten());
+    };
+  }, [loadFileByPath]);
+
+  /**
    * デモ用サンプルMarkdownの読み込み
    */
   const handleLoadSample = () => {

@@ -1,11 +1,12 @@
 use base64::Engine;
 use notify::{Event, RecommendedWatcher, RecursiveMode, Watcher};
 use serde::{Deserialize, Serialize};
+use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::UNIX_EPOCH;
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 
 /// フロントエンドに返却するMarkdownファイルの情報構造体
 #[derive(Debug, Serialize, Deserialize)]
@@ -23,7 +24,6 @@ pub struct FilePayload {
 }
 
 /// ファイル変更監視（notify）の状態を保持する構造体
-/// TauriのStateとしてアプリケーション全体で共有されます。
 pub struct WatcherState {
     /// 稼働中のファイル監視インスタンス
     pub watcher: Mutex<Option<RecommendedWatcher>>,
@@ -40,8 +40,10 @@ impl Default for WatcherState {
     }
 }
 
+/// アプリ起動時にコマンドライン引数として渡されたファイルパスを保持する構造体
+pub struct InitialFileState(pub Mutex<Option<String>>);
+
 /// OSネイティブのファイル選択ダイアログを開き、選択されたMarkdown/テキストファイルのパスを返します。
-/// ユーザーがキャンセルした場合は None を返します。
 #[tauri::command]
 fn open_file_dialog() -> Option<String> {
     let file = rfd::FileDialog::new()
@@ -49,6 +51,14 @@ fn open_file_dialog() -> Option<String> {
         .pick_file();
 
     file.map(|p| p.to_string_lossy().to_string())
+}
+
+/// アプリ起動時の引数（ファイル関連付け起動）として渡された初期ファイルパスを取得します。
+/// 一度取得された後は None にリセットされます。
+#[tauri::command]
+fn get_initial_file(state: State<'_, InitialFileState>) -> Option<String> {
+    let mut guard = state.0.lock().ok()?;
+    guard.take()
 }
 
 /// 指定されたパスのMarkdownファイルを読み込み、内容・ファイル名・親ディレクトリ・更新日時を返します。
@@ -91,7 +101,6 @@ fn read_markdown_file(path: String) -> Result<FilePayload, String> {
 }
 
 /// ローカル画像やアセットファイルを読み込み、フロントエンドで直接表示可能な Data URL (Base64) に変換して返します。
-/// 相対パスが指定された場合は、Markdownファイルの親ディレクトリ（base_dir）を基準に絶対パスを解決します。
 #[tauri::command]
 fn read_local_asset(asset_path: String, base_dir: Option<String>) -> Result<String, String> {
     let mut path = PathBuf::from(&asset_path);
@@ -125,7 +134,6 @@ fn read_local_asset(asset_path: String, base_dir: Option<String>) -> Result<Stri
 }
 
 /// 指定されたMarkdownファイルの変更監視（ホットリロード）を開始します。
-/// 外部エディタでファイルが保存（更新）された際、フロントエンドへ `file-changed` イベントを送信します。
 #[tauri::command]
 fn start_watch_file(
     app: AppHandle,
@@ -150,7 +158,6 @@ fn start_watch_file(
     // ファイル更新イベントハンドラの設定
     let mut watcher = notify::recommended_watcher(move |res: notify::Result<Event>| {
         if let Ok(event) = res {
-            // ファイルの更新または作成イベントが発生した場合にフロントエンドへ通知
             if event.kind.is_modify() || event.kind.is_create() {
                 let _ = app_handle.emit("file-changed", &target_path_str);
             }
@@ -181,17 +188,48 @@ fn stop_watch_file(state: State<'_, WatcherState>) -> Result<(), String> {
     Ok(())
 }
 
+/// コマンドライン引数からファイルパスを抽出するヘルパー関数
+fn extract_target_file_from_args(args: &[String]) -> Option<String> {
+    // 最初の引数は通常実行ファイルのパスなので、1番目以降を確認
+    for arg in args.iter().skip(1) {
+        let p = Path::new(arg);
+        if p.is_file() {
+            return Some(p.to_string_lossy().to_string());
+        }
+    }
+    None
+}
+
 /// Tauri アプリケーションの初期化と起動
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // 起動時のコマンドライン引数（Windowsのファイル関連付け起動等）を取得
+    let args: Vec<String> = env::args().collect();
+    let initial_file = extract_target_file_from_args(&args);
+
     tauri::Builder::default()
-        // ファイル監視用の状態管理を登録
+        // ファイル監視状態の管理
         .manage(WatcherState::default())
+        // 初期ファイルパスの状態管理
+        .manage(InitialFileState(Mutex::new(initial_file)))
+        // シングルインスタンスプラグイン（2重起動防止 & 既存ウィンドウへファイルを開くリクエストを送信）
+        .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+            if let Some(file_path) = extract_target_file_from_args(&args) {
+                // フロントエンドへファイルオープンリクエストを通知
+                let _ = app.emit("open-file-requested", file_path);
+            }
+            // 既存のメインウィンドウにフォーカスを当てる
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
+        }))
         // 外部URLオープナープラグイン
         .plugin(tauri_plugin_opener::init())
         // フロントエンドから呼び出し可能なRustコマンド群を登録
         .invoke_handler(tauri::generate_handler![
             open_file_dialog,
+            get_initial_file,
             read_markdown_file,
             read_local_asset,
             start_watch_file,

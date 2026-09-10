@@ -18,6 +18,7 @@
 | **notify** | `^6.1` | クロスプラットフォームなファイル変更監視（ホットリロード用） | CC0-1.0 or Artistic-2.0 |
 | **base64** | `^0.22` | ローカル画像・アセットをData URL形式へエンコード | MIT or Apache-2.0 |
 | **mime_guess** | `^2.0` | ファイル拡張子に基づくMIMEタイプの自動判定 | MIT |
+| **tauri-plugin-single-instance** | `^2.0` | アプリケーションの単一起動制御・外部ファイルオープン連携 | MIT or Apache-2.0 |
 
 ---
 
