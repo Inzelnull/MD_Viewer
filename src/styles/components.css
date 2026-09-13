@@ -230,6 +230,43 @@
   color: var(--text-muted);
 }
 
+.file-title .badge.badge-updated {
+  font-size: 11px;
+  padding: 2px 8px;
+  background-color: rgba(78, 201, 176, 0.15);
+  border: 1px solid rgba(78, 201, 176, 0.35);
+  border-radius: 4px;
+  color: #4ec9b0;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  animation: badgePop 0.25s ease-out;
+}
+
+.file-title .badge.badge-clickable {
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.file-title .badge.badge-clickable:hover {
+  background-color: rgba(78, 201, 176, 0.28);
+  border-color: #4ec9b0;
+  color: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(78, 201, 176, 0.2);
+}
+
+.file-title .badge.badge-clickable:active {
+  transform: translateY(0);
+}
+
+@keyframes badgePop {
+  0% { opacity: 0; transform: scale(0.9); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
 /* ボタン共通 */
 .btn {
   display: inline-flex;

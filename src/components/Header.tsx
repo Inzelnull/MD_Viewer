@@ -45,8 +45,10 @@ interface HeaderProps {
   onZoomReset: () => void;
   /** 印刷・PDF保存呼び出し関数 */
   onPrint: () => void;
-  /** ファイル変更監視（Live Watch）中かどうか */
-  isWatching: boolean;
+  /** ファイル変更が検知されたかどうか */
+  fileUpdated?: boolean;
+  /** ファイルの再読み込み関数 */
+  onReloadFile?: () => void;
   /** 全画面モード状態 */
   isFullscreen: boolean;
   /** 全画面モード切り替え関数 */
@@ -72,7 +74,8 @@ export const Header: React.FC<HeaderProps> = ({
   onZoomOut,
   onZoomReset,
   onPrint,
-  isWatching,
+  fileUpdated,
+  onReloadFile,
   isFullscreen,
   onToggleFullscreen,
 }) => {
@@ -94,17 +97,22 @@ export const Header: React.FC<HeaderProps> = ({
         </button>
       </div>
 
-      {/* 中央エリア：ファイル名表示 & 監視バッジ */}
+      {/* 中央エリア：ファイル名表示 & ファイル更新通知・再読み込みボタン */}
       <div className="header-center">
         {fileName ? (
           <div className="file-title" title={fileName}>
             <FileCode size={15} style={{ color: 'var(--accent-color)' }} />
             <span>{fileName}</span>
-            {isWatching && (
-              <span className="badge" title="自動更新中 - 外部エディタでの保存を自動検知">
+            {fileUpdated && (
+              <button
+                type="button"
+                className="badge badge-updated badge-clickable"
+                onClick={onReloadFile}
+                title="外部エディタでファイルが変更されました。クリックして最新の内容に再読み込みします (または F5 / Ctrl+R)"
+              >
                 <span className="pulse-dot" style={{ display: 'inline-block', marginRight: 4 }} />
-                監視中
-              </span>
+                ファイル更新あり（クリックで再読み込み）
+              </button>
             )}
           </div>
         ) : (

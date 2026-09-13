@@ -10,6 +10,7 @@ use tauri::{AppHandle, Emitter, Manager, State};
 
 /// フロントエンドに返却するMarkdownファイルの情報構造体
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct FilePayload {
     /// ファイルのテキスト全文
     pub content: String,

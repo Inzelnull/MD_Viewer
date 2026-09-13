@@ -30,6 +30,21 @@ const THEME_STORAGE_KEY = 'md_viewer_theme_setting';
 const MULTI_TAB_STORAGE_KEY = 'md_viewer_multi_tab_enabled';
 
 /**
+ * ファイルパスからファイル名を確実に抽出するヘルパー関数
+ */
+function extractFileNameFromPath(filePath: string, fallback?: string): string {
+  if (fallback && fallback !== 'Untitled.md' && fallback !== 'Untitled') {
+    return fallback;
+  }
+  if (!filePath || filePath === 'Demo Document') {
+    return fallback || 'Demo_Markdown_Preview.md';
+  }
+  const normalized = filePath.replace(/\\/g, '/');
+  const segments = normalized.split('/').filter(Boolean);
+  return segments.length > 0 ? segments[segments.length - 1] : (fallback || 'Untitled.md');
+}
+
+/**
  * Markdown Viewer アプリケーションのルートメインコンポーネント
  * 状態管理、Tauriネイティブ機能連携、キーボードショートカット、UIレイアウトを担当します。
  */
@@ -105,8 +120,8 @@ export function App() {
   /** 現在スクロール位置にある見出しのID（TOCのアクティブハイライト用） */
   const [activeHeadingId, setActiveHeadingId] = useState<string>('');
 
-  /** ファイル監視（Live Watch）中かどうか */
-  const [isWatching, setIsWatching] = useState<boolean>(false);
+  /** 外部変更が検知され再読み込み待ちのファイルパス一覧 */
+  const [pendingUpdatePaths, setPendingUpdatePaths] = useState<string[]>([]);
 
   /** レンダリングされたDOMから抽出された目次項目一覧 */
   const [tocItems, setTocItems] = useState<TocItem[]>([]);
@@ -204,7 +219,13 @@ export function App() {
     async (filePath: string) => {
       try {
         // Rustバックエンドからファイル内容を取得
-        const result = await invoke<MarkdownFileInfo>('read_markdown_file', { path: filePath });
+        const rawResult = await invoke<any>('read_markdown_file', { path: filePath });
+        const resolvedFileName =
+          rawResult.fileName || rawResult.file_name || extractFileNameFromPath(filePath);
+        const resolvedParentDir = rawResult.parentDir || rawResult.parent_dir || '';
+        const resolvedLastModified =
+          rawResult.lastModified || rawResult.last_modified || Date.now();
+        const content = rawResult.content || '';
 
         // 現在のスクロール位置を現在のタブに退避
         const currentScroll = previewContainerRef.current ? previewContainerRef.current.scrollTop : 0;
@@ -219,10 +240,10 @@ export function App() {
               t.id === existingTab.id
                 ? {
                     ...t,
-                    content: result.content,
-                    fileName: result.fileName,
-                    parentDir: result.parentDir,
-                    lastModified: result.lastModified,
+                    content,
+                    fileName: resolvedFileName,
+                    parentDir: resolvedParentDir,
+                    lastModified: resolvedLastModified,
                   }
                 : t.id === activeTabId
                 ? { ...t, scrollTop: currentScroll }
@@ -237,11 +258,11 @@ export function App() {
 
           const newTab: TabItem = {
             id: newTabId,
-            filePath: result.path,
-            fileName: result.fileName,
-            parentDir: result.parentDir,
-            content: result.content,
-            lastModified: result.lastModified,
+            filePath,
+            fileName: resolvedFileName,
+            parentDir: resolvedParentDir,
+            content,
+            lastModified: resolvedLastModified,
             scrollTop: 0,
           };
 
@@ -263,10 +284,12 @@ export function App() {
           }
         });
 
+        // 読み込んだファイルの保留更新状態をクリア
+        setPendingUpdatePaths((prev) => prev.filter((p) => p !== filePath));
+
         // 監視を開始
         try {
           await invoke('start_watch_file', { path: filePath });
-          setIsWatching(true);
         } catch (watchErr) {
           console.warn('ファイル監視の開始に失敗しました:', watchErr);
         }
@@ -319,6 +342,9 @@ export function App() {
     [activeTabId, tabs]
   );
 
+  /** 閉じたタブの履歴（Ctrl+Shift+T で復元用） */
+  const [closedTabs, setClosedTabs] = useState<TabItem[]>([]);
+
   /**
    * タブを閉じる処理
    */
@@ -330,8 +356,13 @@ export function App() {
 
       setTabs((prevTabs) => {
         const tabToClose = prevTabs.find((t) => t.id === tabId);
-        if (tabToClose && tabToClose.filePath && tabToClose.filePath !== 'Demo Document') {
-          invoke('unwatch_file', { path: tabToClose.filePath }).catch(() => {});
+        if (tabToClose) {
+          // 閉じたタブ履歴に記録（最大20件）
+          setClosedTabs((prevClosed) => [...prevClosed.slice(-19), tabToClose]);
+          setPendingUpdatePaths((prev) => prev.filter((p) => p !== tabToClose.filePath));
+          if (tabToClose.filePath && tabToClose.filePath !== 'Demo Document') {
+            invoke('unwatch_file', { path: tabToClose.filePath }).catch(() => {});
+          }
         }
 
         const nextTabs = prevTabs.filter((t) => t.id !== tabId);
@@ -350,7 +381,6 @@ export function App() {
             }, 0);
           } else {
             setActiveTabId(null);
-            setIsWatching(false);
           }
         }
         return nextTabs;
@@ -365,8 +395,12 @@ export function App() {
   const handleCloseOtherTabs = useCallback(
     (keepTabId: string) => {
       setTabs((prevTabs) => {
-        prevTabs.forEach((t) => {
-          if (t.id !== keepTabId && t.filePath && t.filePath !== 'Demo Document') {
+        const tabsToClose = prevTabs.filter((t) => t.id !== keepTabId);
+        if (tabsToClose.length > 0) {
+          setClosedTabs((prevClosed) => [...prevClosed.slice(-20 + tabsToClose.length), ...tabsToClose]);
+        }
+        tabsToClose.forEach((t) => {
+          if (t.filePath && t.filePath !== 'Demo Document') {
             invoke('unwatch_file', { path: t.filePath }).catch(() => {});
           }
         });
@@ -382,6 +416,10 @@ export function App() {
    * すべてのタブを閉じる処理
    */
   const handleCloseAllTabs = useCallback(() => {
+    if (tabs.length > 0) {
+      setClosedTabs((prevClosed) => [...prevClosed.slice(-20 + tabs.length), ...tabs]);
+    }
+    setPendingUpdatePaths([]);
     tabs.forEach((t) => {
       if (t.filePath && t.filePath !== 'Demo Document') {
         invoke('unwatch_file', { path: t.filePath }).catch(() => {});
@@ -389,8 +427,74 @@ export function App() {
     });
     setTabs([]);
     setActiveTabId(null);
-    setIsWatching(false);
   }, [tabs]);
+
+  /**
+   * 直近に閉じたタブを復元する処理 (Ctrl+Shift+T)
+   */
+  const handleRestoreClosedTab = useCallback(async () => {
+    if (closedTabs.length === 0) return;
+
+    // 最後に閉じたタブを取り出す
+    const tabToRestore = closedTabs[closedTabs.length - 1];
+    setClosedTabs((prev) => prev.slice(0, -1));
+
+    if (!tabToRestore) return;
+
+    // すでに同じファイルが開かれている場合はそのタブに切り替え
+    const existing = tabs.find((t) => t.filePath === tabToRestore.filePath);
+    if (existing) {
+      setActiveTabId(existing.id);
+      return;
+    }
+
+    // ローカルファイルなら最新の内容を再読み込みして復元
+    if (tabToRestore.filePath && tabToRestore.filePath !== 'Demo Document') {
+      try {
+        const rawResult = await invoke<any>('read_markdown_file', {
+          path: tabToRestore.filePath,
+        });
+        const restoredTab: TabItem = {
+          id: tabToRestore.id,
+          filePath: tabToRestore.filePath,
+          fileName:
+            rawResult.fileName ||
+            rawResult.file_name ||
+            tabToRestore.fileName ||
+            extractFileNameFromPath(tabToRestore.filePath),
+          parentDir: rawResult.parentDir || rawResult.parent_dir || tabToRestore.parentDir,
+          content: rawResult.content || tabToRestore.content,
+          lastModified: rawResult.lastModified || rawResult.last_modified || Date.now(),
+          scrollTop: tabToRestore.scrollTop || 0,
+        };
+
+        setTabs((prev) => [...prev, restoredTab]);
+        setActiveTabId(restoredTab.id);
+
+        try {
+          await invoke('start_watch_file', { path: tabToRestore.filePath });
+        } catch {}
+
+        setTimeout(() => {
+          if (previewContainerRef.current) {
+            previewContainerRef.current.scrollTop = restoredTab.scrollTop || 0;
+          }
+        }, 0);
+        return;
+      } catch (err) {
+        console.warn('復元対象ファイルの読み込みに失敗しました（保存データで復元します）:', err);
+      }
+    }
+
+    // デモ文書またはファイル読み込みフォールバック
+    setTabs((prev) => [...prev, tabToRestore]);
+    setActiveTabId(tabToRestore.id);
+    setTimeout(() => {
+      if (previewContainerRef.current) {
+        previewContainerRef.current.scrollTop = tabToRestore.scrollTop || 0;
+      }
+    }, 0);
+  }, [closedTabs, tabs]);
 
   /**
    * デモ用サンプルMarkdownの読み込み
@@ -459,35 +563,55 @@ export function App() {
   }, [loadFileByPath]);
 
   /**
+   * 現在アクティブなファイルの最新内容を手動再読み込みする処理
+   */
+  const handleReloadCurrentFile = useCallback(async () => {
+    if (!currentFile || !currentFile.path || currentFile.path === 'Demo Document') return;
+
+    try {
+      const freshData = await invoke<any>('read_markdown_file', {
+        path: currentFile.path,
+      });
+      const resolvedFileName =
+        freshData.fileName || freshData.file_name || extractFileNameFromPath(currentFile.path);
+      const resolvedParentDir = freshData.parentDir || freshData.parent_dir || '';
+      const resolvedLastModified =
+        freshData.lastModified || freshData.last_modified || Date.now();
+
+      setTabs((prevTabs) =>
+        prevTabs.map((tab) =>
+          tab.filePath === currentFile.path
+            ? {
+                ...tab,
+                content: freshData.content || '',
+                fileName: resolvedFileName,
+                parentDir: resolvedParentDir,
+                lastModified: resolvedLastModified,
+              }
+            : tab
+        )
+      );
+
+      // 更新保留パスから除外
+      setPendingUpdatePaths((prev) => prev.filter((p) => p !== currentFile.path));
+    } catch (err) {
+      console.error('ファイルの再読み込みに失敗しました:', err);
+    }
+  }, [currentFile]);
+
+  /**
    * Tauriバックエンドからのファイル変更（file-changed）イベントを購読
-   * 外部エディタで保存されたら自動で該当タブの最新内容を再読み込みして更新します。
+   * 外部エディタで保存されたら該当ファイルパスを保留リストに追加し、
+   * 「ファイル更新あり（クリックで再読み込み）」バッジを表示します。
    */
   useEffect(() => {
-    const unlistenPromise = listen<string>('file-changed', async (event) => {
+    const unlistenPromise = listen<string>('file-changed', (event) => {
       const changedPath = event.payload;
       if (!changedPath) return;
 
-      try {
-        const freshData = await invoke<MarkdownFileInfo>('read_markdown_file', {
-          path: changedPath,
-        });
-
-        setTabs((prevTabs) =>
-          prevTabs.map((tab) =>
-            tab.filePath === changedPath
-              ? {
-                  ...tab,
-                  content: freshData.content,
-                  fileName: freshData.fileName,
-                  parentDir: freshData.parentDir,
-                  lastModified: freshData.lastModified,
-                }
-              : tab
-          )
-        );
-      } catch (err) {
-        console.error('変更されたファイルの再読み込みに失敗しました:', err);
-      }
+      setPendingUpdatePaths((prev) =>
+        prev.includes(changedPath) ? prev : [...prev, changedPath]
+      );
     });
 
     return () => {
@@ -618,7 +742,13 @@ export function App() {
       if (e.key === 'F11') {
         e.preventDefault();
         handleToggleFullscreen();
-      } else if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 'o' || e.key.toLowerCase() === 't')) {
+      } else if (e.key === 'F5' || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'r')) {
+        e.preventDefault();
+        handleReloadCurrentFile();
+      } else if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 't') {
+        e.preventDefault();
+        handleRestoreClosedTab();
+      } else if ((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key.toLowerCase() === 'o' || e.key.toLowerCase() === 't')) {
         e.preventDefault();
         handleOpenFile();
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'w') {
@@ -670,6 +800,8 @@ export function App() {
     tabs,
     activeTabId,
     handleToggleFullscreen,
+    handleReloadCurrentFile,
+    handleRestoreClosedTab,
     handleOpenFile,
     handleCloseTab,
     handleSelectTab,
@@ -697,7 +829,8 @@ export function App() {
         onZoomOut={handleZoomOut}
         onZoomReset={handleZoomReset}
         onPrint={handlePrint}
-        isWatching={isWatching}
+        fileUpdated={Boolean(currentFile?.path && pendingUpdatePaths.includes(currentFile.path))}
+        onReloadFile={handleReloadCurrentFile}
         isFullscreen={isFullscreen}
         onToggleFullscreen={handleToggleFullscreen}
       />
@@ -723,6 +856,9 @@ export function App() {
               onSelectTab={handleSelectTab}
               onCloseTab={handleCloseTab}
               onNewTab={handleOpenFile}
+              onRestoreClosedTab={handleRestoreClosedTab}
+              canRestoreClosedTab={closedTabs.length > 0}
+              pendingUpdatePaths={pendingUpdatePaths}
               onCloseOtherTabs={handleCloseOtherTabs}
               onCloseAllTabs={handleCloseAllTabs}
             />
