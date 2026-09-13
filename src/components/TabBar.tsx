@@ -74,6 +74,24 @@ export const TabBar: React.FC<TabBarProps> = ({
     }
   };
 
+  // 同名ファイルが存在するか判定するためのファイル名出現数マップ
+  const duplicateNameCounts = React.useMemo(() => {
+    const counts: Record<string, number> = {};
+    tabs.forEach((t) => {
+      const name = t.fileName || 'Untitled';
+      counts[name] = (counts[name] || 0) + 1;
+    });
+    return counts;
+  }, [tabs]);
+
+  // 親ディレクトリ名（最後のフォルダ名）を抽出するヘルパー
+  const getParentFolderName = (parentDir?: string): string => {
+    if (!parentDir) return '';
+    const normalized = parentDir.replace(/\\/g, '/');
+    const segments = normalized.split('/').filter(Boolean);
+    return segments.length > 0 ? segments[segments.length - 1] : '';
+  };
+
   if (tabs.length === 0) {
     return null;
   }
@@ -83,6 +101,9 @@ export const TabBar: React.FC<TabBarProps> = ({
       <div className="tab-list" ref={tabListRef}>
         {tabs.map((tab) => {
           const isActive = tab.id === activeTabId;
+          const isDuplicateName = (duplicateNameCounts[tab.fileName || 'Untitled'] || 0) > 1;
+          const folderHint = isDuplicateName ? getParentFolderName(tab.parentDir) : '';
+
           return (
             <div
               key={tab.id}
@@ -91,10 +112,13 @@ export const TabBar: React.FC<TabBarProps> = ({
               onClick={() => onSelectTab(tab.id)}
               onAuxClick={(e) => handleAuxClick(e, tab.id)}
               onContextMenu={(e) => handleContextMenu(e, tab.id)}
-              title={tab.filePath || tab.fileName}
+              title={`${tab.fileName}${tab.filePath ? `\n${tab.filePath}` : ''}`}
             >
               <FileCode size={14} className="tab-icon" />
-              <span className="tab-title">{tab.fileName}</span>
+              <span className="tab-title-container">
+                <span className="tab-title">{tab.fileName || 'Untitled.md'}</span>
+                {folderHint && <span className="tab-folder-hint">{folderHint}</span>}
+              </span>
               <button
                 type="button"
                 className="tab-close-btn"
