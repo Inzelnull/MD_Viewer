@@ -54,3 +54,23 @@ export type ThemeSetting = 'system' | 'light' | 'dark';
  * 実際にDOMに適用されるテーマ（light または dark）
  */
 export type ResolvedTheme = 'light' | 'dark';
+
+/**
+ * 複数タブ管理用のタブアイテム情報
+ */
+export interface TabItem {
+  /** タブ固有の一意なID */
+  id: string;
+  /** ファイルの絶対パス（未保存/サンプルの場合は一意な識別名） */
+  filePath: string;
+  /** 表示用ファイル名 */
+  fileName: string;
+  /** 親ディレクトリの絶対パス */
+  parentDir: string;
+  /** ファイルのテキスト内容 */
+  content: string;
+  /** 最終更新日時（ミリ秒） */
+  lastModified: number;
+  /** 保存されたスクロール位置（px） */
+  scrollTop?: number;
+}

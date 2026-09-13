@@ -12,6 +12,7 @@ import {
   Sun,
   Moon,
   Monitor,
+  Layers,
 } from 'lucide-react';
 import { ThemeSetting } from '../types/markdown';
 
@@ -26,6 +27,10 @@ interface HeaderProps {
   onOpenFile: () => void;
   /** 検索バーを開く関数 */
   onOpenSearch: () => void;
+  /** 複数タブモードが有効かどうか */
+  multiTabEnabled: boolean;
+  /** 複数タブモード切り替え関数 */
+  onToggleMultiTab: () => void;
   /** 現在のテーマ設定（system, light, dark） */
   themeSetting: ThemeSetting;
   /** テーマ設定変更ハンドラ */
@@ -58,6 +63,8 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleSidebar,
   onOpenFile,
   onOpenSearch,
+  multiTabEnabled,
+  onToggleMultiTab,
   themeSetting,
   onThemeSettingChange,
   zoomLevel,
@@ -107,8 +114,21 @@ export const Header: React.FC<HeaderProps> = ({
         )}
       </div>
 
-      {/* 右側エリア：検索、ズーム、テーマ、全画面、印刷 */}
+      {/* 右側エリア：複数タブ切替、検索、ズーム、テーマ、全画面、印刷 */}
       <div className="header-right">
+        {/* 複数タブモード切替ボタン */}
+        <button
+          className={`btn btn-icon ${multiTabEnabled ? 'btn-active' : ''}`}
+          onClick={onToggleMultiTab}
+          title={
+            multiTabEnabled
+              ? '複数タブ機能: 有効 (クリックで無効化)'
+              : '複数タブ機能: 無効 (クリックで有効化)'
+          }
+        >
+          <Layers size={15} />
+        </button>
+
         {/* 文書内検索ボタン */}
         <button className="btn btn-icon" onClick={onOpenSearch} title="文書内検索 (Ctrl+F)">
           <Search size={15} />

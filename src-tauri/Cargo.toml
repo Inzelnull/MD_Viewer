@@ -31,8 +31,8 @@ tauri-plugin-single-instance = "2"
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
 [profile.release]
-codegen-units = 1
-lto = true
+# Thin LTO を使用してマルチコアでの並列リンク時最適化を有効化（コア数の多い環境で大幅に高速化）
+lto = "thin"
 opt-level = 3
 panic = "abort"
 strip = true

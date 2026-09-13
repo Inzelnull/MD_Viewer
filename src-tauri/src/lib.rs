@@ -23,19 +23,21 @@ pub struct FilePayload {
     pub last_modified: u64,
 }
 
-/// ファイル変更監視（notify）の状態を保持する構造体
+use std::collections::HashSet;
+
+/// ファイル変更監視（notify）の状態を保持する構造体（複数ファイル同時監視対応）
 pub struct WatcherState {
     /// 稼働中のファイル監視インスタンス
     pub watcher: Mutex<Option<RecommendedWatcher>>,
-    /// 現在監視しているファイルのパス
-    pub watching_path: Mutex<Option<String>>,
+    /// 現在監視しているファイルパスの集合
+    pub watching_paths: Mutex<HashSet<String>>,
 }
 
 impl Default for WatcherState {
     fn default() -> Self {
         Self {
             watcher: Mutex::new(None),
-            watching_path: Mutex::new(None),
+            watching_paths: Mutex::new(HashSet::new()),
         }
     }
 }
@@ -133,7 +135,7 @@ fn read_local_asset(asset_path: String, base_dir: Option<String>) -> Result<Stri
     Ok(format!("data:{};base64,{}", mime, base64_data))
 }
 
-/// 指定されたMarkdownファイルの変更監視（ホットリロード）を開始します。
+/// 指定されたMarkdownファイルの変更監視（ホットリロード）を開始・追加します。
 #[tauri::command]
 fn start_watch_file(
     app: AppHandle,
@@ -145,45 +147,71 @@ fn start_watch_file(
         return Err(format!("File does not exist to watch: {}", path));
     }
 
-    // 前回の監視インスタンスが存在する場合は停止・破棄
+    let mut paths_guard = state.watching_paths.lock().map_err(|e| e.to_string())?;
     let mut watcher_guard = state.watcher.lock().map_err(|e| e.to_string())?;
-    let mut watching_path_guard = state.watching_path.lock().map_err(|e| e.to_string())?;
 
-    *watcher_guard = None;
-    *watching_path_guard = None;
+    // 既に監視中であれば何もしない
+    if paths_guard.contains(&path) {
+        return Ok(());
+    }
 
-    let target_path_str = path.clone();
-    let app_handle = app.clone();
-
-    // ファイル更新イベントハンドラの設定
-    let mut watcher = notify::recommended_watcher(move |res: notify::Result<Event>| {
-        if let Ok(event) = res {
-            if event.kind.is_modify() || event.kind.is_create() {
-                let _ = app_handle.emit("file-changed", &target_path_str);
+    // watcher が未初期化なら初期化
+    if watcher_guard.is_none() {
+        let app_handle = app.clone();
+        let watcher = notify::recommended_watcher(move |res: notify::Result<Event>| {
+            if let Ok(event) = res {
+                if event.kind.is_modify() || event.kind.is_create() {
+                    for changed_path in event.paths {
+                        let path_str = changed_path.to_string_lossy().to_string();
+                        let _ = app_handle.emit("file-changed", &path_str);
+                    }
+                }
             }
-        }
-    })
-    .map_err(|e| format!("Failed to create watcher: {}", e))?;
+        })
+        .map_err(|e| format!("Failed to create watcher: {}", e))?;
 
-    // 対象ファイルを監視
-    watcher
-        .watch(&p, RecursiveMode::NonRecursive)
-        .map_err(|e| format!("Failed to watch path: {}", e))?;
+        *watcher_guard = Some(watcher);
+    }
 
-    *watcher_guard = Some(watcher);
-    *watching_path_guard = Some(path);
+    // ファイル監視を登録
+    if let Some(watcher) = watcher_guard.as_mut() {
+        watcher
+            .watch(&p, RecursiveMode::NonRecursive)
+            .map_err(|e| format!("Failed to watch path: {}", e))?;
+        paths_guard.insert(path);
+    }
 
     Ok(())
 }
 
-/// 現在のファイル監視を停止します。
+/// 指定されたファイルの変更監視を解除します。
+#[tauri::command]
+fn unwatch_file(state: State<'_, WatcherState>, path: String) -> Result<(), String> {
+    let mut paths_guard = state.watching_paths.lock().map_err(|e| e.to_string())?;
+    let mut watcher_guard = state.watcher.lock().map_err(|e| e.to_string())?;
+
+    if paths_guard.remove(&path) {
+        let p = PathBuf::from(&path);
+        if let Some(watcher) = watcher_guard.as_mut() {
+            let _ = watcher.unwatch(&p);
+        }
+    }
+
+    if paths_guard.is_empty() {
+        *watcher_guard = None;
+    }
+
+    Ok(())
+}
+
+/// すべてのファイル監視を停止します。
 #[tauri::command]
 fn stop_watch_file(state: State<'_, WatcherState>) -> Result<(), String> {
     let mut watcher_guard = state.watcher.lock().map_err(|e| e.to_string())?;
-    let mut watching_path_guard = state.watching_path.lock().map_err(|e| e.to_string())?;
+    let mut paths_guard = state.watching_paths.lock().map_err(|e| e.to_string())?;
 
     *watcher_guard = None;
-    *watching_path_guard = None;
+    paths_guard.clear();
 
     Ok(())
 }
@@ -311,6 +339,7 @@ pub fn run() {
             read_markdown_file,
             read_local_asset,
             start_watch_file,
+            unwatch_file,
             stop_watch_file
         ])
         .run(tauri::generate_context!())

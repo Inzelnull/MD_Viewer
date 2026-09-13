@@ -18,6 +18,160 @@
   gap: 12px;
 }
 
+/* -------------------------------------------------------------
+   タブバー (複数タブ管理)
+   ------------------------------------------------------------- */
+.tab-bar-wrapper {
+  display: flex;
+  align-items: stretch;
+  height: 35px;
+  background-color: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  user-select: none;
+  z-index: 90;
+  overflow: hidden;
+  position: relative;
+}
+
+.tab-list {
+  display: flex;
+  align-items: stretch;
+  flex: 1;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none; /* Firefox */
+}
+
+.tab-list::-webkit-scrollbar {
+  display: none; /* Chrome/Safari */
+}
+
+.tab-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px;
+  min-width: 120px;
+  max-width: 220px;
+  height: 100%;
+  font-size: 12px;
+  color: var(--text-secondary);
+  background-color: var(--bg-secondary);
+  border-right: 1px solid var(--border-subtle);
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+  position: relative;
+  box-sizing: border-box;
+}
+
+.tab-item:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-bright);
+}
+
+.tab-item.tab-item-active {
+  background-color: var(--bg-primary);
+  color: var(--text-bright);
+  font-weight: 500;
+  border-bottom: 2px solid var(--accent-color);
+}
+
+.tab-icon {
+  flex-shrink: 0;
+  color: var(--accent-color);
+}
+
+.tab-title {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tab-close-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 3px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0;
+  margin-left: 2px;
+  opacity: 0.7;
+  transition: all 0.12s ease;
+}
+
+.tab-item:hover .tab-close-btn {
+  opacity: 1;
+}
+
+.tab-close-btn:hover {
+  background-color: var(--bg-tertiary);
+  color: var(--text-bright);
+}
+
+.tab-actions {
+  display: flex;
+  align-items: center;
+  padding: 0 4px;
+  background-color: var(--bg-secondary);
+  border-left: 1px solid var(--border-subtle);
+}
+
+.tab-new-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.tab-new-btn:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-bright);
+}
+
+/* タブ右クリックコンテキストメニュー */
+.tab-context-menu {
+  position: fixed;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  box-shadow: var(--shadow-lg);
+  padding: 4px 0;
+  min-width: 160px;
+  z-index: 1000;
+  animation: fadeIn 0.1s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.97); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.tab-context-menu-item {
+  padding: 6px 14px;
+  font-size: 12px;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background-color 0.12s ease;
+}
+
+.tab-context-menu-item:hover {
+  background-color: var(--accent-color);
+  color: var(--accent-text);
+}
+
 .header-left, .header-center, .header-right {
   display: flex;
   align-items: center;
@@ -209,6 +363,18 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+}
+
+/* -------------------------------------------------------------
+   メインコンテンツエリア (タブバー + プレビュー)
+   ------------------------------------------------------------- */
+.content-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  position: relative;
 }
 
 /* -------------------------------------------------------------
