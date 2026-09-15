@@ -1,3 +1,4 @@
+import React from 'react';
 import {
   Info,
   Lightbulb,
@@ -56,7 +57,7 @@ const alertConfig: Record<
  * GitHub Alerts 構文（> [!NOTE] など）を GitHub / VS Code スタイルの
  * 装飾カードブロックとして表示するコンポーネント
  */
-export const AlertBlock: React.FC<AlertBlockProps> = ({ type, children }) => {
+export const AlertBlock: React.FC<AlertBlockProps> = React.memo(({ type, children }) => {
   const config = alertConfig[type] || alertConfig.note;
 
   return (
@@ -68,4 +69,7 @@ export const AlertBlock: React.FC<AlertBlockProps> = ({ type, children }) => {
       <div>{children}</div>
     </div>
   );
-};
+});
+
+AlertBlock.displayName = 'AlertBlock';
+

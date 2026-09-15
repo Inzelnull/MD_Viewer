@@ -18,7 +18,7 @@ mermaid.initialize({
  * Mermaid記法（フローチャート、シーケンス図、クラス図等）を
  * 動的にSVG画像へレンダリングするコンポーネント
  */
-export const MermaidBlock: React.FC<MermaidBlockProps> = ({ chart }) => {
+export const MermaidBlock: React.FC<MermaidBlockProps> = React.memo(({ chart }) => {
   const [svgContent, setSvgContent] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
 
@@ -72,4 +72,7 @@ export const MermaidBlock: React.FC<MermaidBlockProps> = ({ chart }) => {
       dangerouslySetInnerHTML={{ __html: svgContent }}
     />
   );
-};
+});
+
+MermaidBlock.displayName = 'MermaidBlock';
+

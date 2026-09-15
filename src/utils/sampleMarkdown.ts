@@ -43,7 +43,7 @@ Welcome to the **Tauri-powered Markdown Preview Application**! This viewer is en
 | **Syntax Highlight** | ✅ Yes | Highlight.js | Instant |
 | **KaTeX Math** | ✅ Yes | KaTeX v0.16 | Fast DOM |
 | **Mermaid Charts** | ✅ Yes | Mermaid.js | Vector SVG |
-| **Live Hot Reload** | ✅ Yes | Rust \`notify\` | Instant IPC |
+| **Live Hot Reload** | ✅ Yes | Rust Native Watcher | Instant IPC |
 
 ---
 
@@ -51,7 +51,7 @@ Welcome to the **Tauri-powered Markdown Preview Application**! This viewer is en
 
 - [x] Create Tauri 2.0 Rust backend
 - [x] Configure GFM & Markdown parser plugins
-- [x] Implement live file watcher with notify
+- [x] Implement live native file watcher
 - [x] Add VS Code dark and light theme palettes
 - [ ] Add PDF export customization
 - [ ] Add plugin extensions
@@ -94,11 +94,11 @@ Inline formula: The Schrödinger equation in 1D is given by $i\hbar \frac{\parti
 
 Display block equation:
 $$
-\\int_{-\\infty}^{\\infty} e^{-x^2} dx = \\sqrt{\\pi}
+\int_{-\infty}^{\infty} e^{-x^2} dx = \sqrt{\pi}
 $$
 
 $$
-f(x) = \\sum_{n=0}^{\\infty} \\frac{f^{(n)}(a)}{n!} (x - a)^n
+f(x) = \sum_{n=0}^{\infty} \frac{f^{(n)}(a)}{n!} (x - a)^n
 $$
 
 ---
@@ -108,7 +108,7 @@ $$
 ### Architecture Flowchart
 \`\`\`mermaid
 graph TD
-    A[Markdown File on Disk] -->|notify event| B(Tauri Rust Backend)
+    A[Markdown File on Disk] -->|File Mod Time| B(Tauri Rust Backend)
     B -->|IPC emit 'file-changed'| C(React WebView)
     C -->|Unified / Remark Parser| D{Rehype Pipeline}
     D --> E[GFM Table / Tasklist]
@@ -125,7 +125,7 @@ sequenceDiagram
     actor User
     participant Editor as External Editor (VS Code)
     participant FS as File System
-    participant Rust as Tauri Backend (Notify)
+    participant Rust as Tauri Backend (Watcher)
     participant UI as Previewer (React)
 
     User->>Editor: Edit Markdown & Save (Ctrl+S)
@@ -137,3 +137,4 @@ sequenceDiagram
     UI->>User: Re-render smooth preview instantly
 \`\`\`
 `;
+

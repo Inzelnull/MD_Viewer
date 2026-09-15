@@ -117,6 +117,12 @@ export function App() {
   /** 検索クエリ文字列 */
   const [searchQuery, setSearchQuery] = useState<string>('');
 
+  /** 検索一致箇所の現在インデックス */
+  const [matchIndex, setMatchIndex] = useState<number>(0);
+
+  /** 検索一致の総件数 */
+  const [totalMatches, setTotalMatches] = useState<number>(0);
+
   /** 現在スクロール位置にある見出しのID（TOCのアクティブハイライト用） */
   const [activeHeadingId, setActiveHeadingId] = useState<string>('');
 
@@ -430,6 +436,35 @@ export function App() {
   }, [tabs]);
 
   /**
+   * タブの並び替え処理（ドラッグ＆ドロップによる順序移動）
+   */
+  const handleReorderTabs = useCallback(
+    (sourceTabId: string, targetTabId: string, position: 'left' | 'right' = 'left') => {
+      if (sourceTabId === targetTabId) return;
+
+      setTabs((prevTabs) => {
+        const sourceIndex = prevTabs.findIndex((t) => t.id === sourceTabId);
+        if (sourceIndex === -1) return prevTabs;
+
+        const newTabs = [...prevTabs];
+        const [movedTab] = newTabs.splice(sourceIndex, 1);
+
+        let targetIndex = newTabs.findIndex((t) => t.id === targetTabId);
+        if (targetIndex === -1) return prevTabs;
+
+        if (position === 'right') {
+          targetIndex += 1;
+        }
+
+        newTabs.splice(targetIndex, 0, movedTab);
+        return newTabs;
+      });
+    },
+    []
+  );
+
+
+  /**
    * 直近に閉じたタブを復元する処理 (Ctrl+Shift+T)
    */
   const handleRestoreClosedTab = useCallback(async () => {
@@ -648,21 +683,43 @@ export function App() {
   // -------------------------------------------------------------
 
   /**
-   * ファイルのサイズ、単語数、文字数、行数、更新日時の統計を算出
+   * ファイルのサイズ、単語数、文字数、行数、更新日時の統計を算出（ゼロアロケーション・単一パス集計）
    */
   const metadata: FileMetadata | null = useMemo(() => {
     if (!currentFile) return null;
     const content = currentFile.content;
-    const lines = content.split('\n').length;
-    const words = content.trim().split(/\s+/).filter(Boolean).length;
-    const chars = content.length;
-    const size = new Blob([content]).size;
+    const len = content.length;
+    let lines = len > 0 ? 1 : 0;
+    let words = 0;
+    let inWord = false;
+
+    for (let i = 0; i < len; i++) {
+      const code = content.charCodeAt(i);
+      if (code === 10) {
+        // LF '\n'
+        lines++;
+      }
+      if (code <= 32) {
+        // 空白文字
+        if (inWord) {
+          words++;
+          inWord = false;
+        }
+      } else {
+        inWord = true;
+      }
+    }
+    if (inWord) {
+      words++;
+    }
+
+    const size = new TextEncoder().encode(content).length;
     const date = new Date(currentFile.lastModified || Date.now());
 
     return {
       sizeBytes: size,
       wordCount: words,
-      charCount: chars,
+      charCount: len,
       lineCount: lines,
       lastModifiedFormatted: date.toLocaleTimeString([], {
         hour: '2-digit',
@@ -678,31 +735,69 @@ export function App() {
 
   /**
    * スクロール位置に応じて、現在閲覧中の見出しを判定してTOCをアクティブ化
+   * requestAnimationFrame によるスロットリングと不要な再レンダリングの抑止
    */
   useEffect(() => {
     const container = previewContainerRef.current;
     if (!container || !currentFile) return;
 
-    const handleScroll = () => {
-      const headings = container.querySelectorAll('h1, h2, h3, h4, h5, h6');
-      const scrollTop = container.scrollTop + 80;
+    let rafId: number | null = null;
 
-      let currentActive = '';
-      headings.forEach((heading) => {
-        const top = (heading as HTMLElement).offsetTop;
-        if (scrollTop >= top) {
-          currentActive = heading.id;
+    const handleScroll = () => {
+      if (rafId !== null) return;
+
+      rafId = requestAnimationFrame(() => {
+        rafId = null;
+        const headings = container.querySelectorAll('h1, h2, h3, h4, h5, h6');
+        if (headings.length === 0) return;
+
+        const scrollTop = container.scrollTop + 80;
+        let currentActive = '';
+
+        for (let i = 0; i < headings.length; i++) {
+          const heading = headings[i] as HTMLElement;
+          if (scrollTop >= heading.offsetTop) {
+            currentActive = heading.id;
+          } else {
+            break;
+          }
+        }
+
+        if (currentActive) {
+          setActiveHeadingId((prev) => (prev === currentActive ? prev : currentActive));
         }
       });
-
-      if (currentActive) {
-        setActiveHeadingId(currentActive);
-      }
     };
 
     container.addEventListener('scroll', handleScroll, { passive: true });
-    return () => container.removeEventListener('scroll', handleScroll);
+    return () => {
+      container.removeEventListener('scroll', handleScroll);
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+      }
+    };
   }, [currentFile]);
+
+  /**
+   * MarkdownView から抽出された見出しリストを受信
+   * 前回と完全に一致する場合はステート更新をスキップして不要な再描画を抑止
+   */
+  const handleHeadingsExtracted = useCallback((newItems: TocItem[]) => {
+    setTocItems((prev) => {
+      if (
+        prev.length === newItems.length &&
+        prev.every(
+          (item, i) =>
+            item.id === newItems[i].id &&
+            item.text === newItems[i].text &&
+            item.level === newItems[i].level
+        )
+      ) {
+        return prev;
+      }
+      return newItems;
+    });
+  }, []);
 
   /**
    * 目次項目クリック時に対象の見出し位置へ正確にスムーズスクロールする処理
@@ -723,6 +818,56 @@ export function App() {
       setActiveHeadingId(id);
     }
   }, []);
+
+  // -------------------------------------------------------------
+  // 文書内検索処理 (Search Navigation)
+  // -------------------------------------------------------------
+
+  /**
+   * 検索文字列が変更された際の一致件数集計
+   */
+  useEffect(() => {
+    if (!searchQuery.trim() || !previewContainerRef.current) {
+      setTotalMatches(0);
+      setMatchIndex(0);
+      return;
+    }
+
+    try {
+      const text = previewContainerRef.current.innerText || '';
+      const escapedQuery = searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const matches = text.match(new RegExp(escapedQuery, 'gi'));
+      const count = matches ? matches.length : 0;
+      setTotalMatches(count);
+      setMatchIndex(count > 0 ? 0 : 0);
+    } catch {
+      setTotalMatches(0);
+      setMatchIndex(0);
+    }
+  }, [searchQuery, currentFile]);
+
+  /**
+   * 次の一致箇所へ移動 (Enter / 下矢印)
+   */
+  const handleSearchNext = useCallback(() => {
+    if (!searchQuery) return;
+    if (typeof window !== 'undefined' && (window as any).find) {
+      (window as any).find(searchQuery, false, false, true, false, false, false);
+      setMatchIndex((prev) => (totalMatches > 0 ? (prev + 1) % totalMatches : 0));
+    }
+  }, [searchQuery, totalMatches]);
+
+  /**
+   * 前の一致箇所へ移動 (Shift+Enter / 上矢印)
+   */
+  const handleSearchPrev = useCallback(() => {
+    if (!searchQuery) return;
+    if (typeof window !== 'undefined' && (window as any).find) {
+      (window as any).find(searchQuery, false, true, true, false, false, false);
+      setMatchIndex((prev) => (totalMatches > 0 ? (prev - 1 + totalMatches) % totalMatches : 0));
+    }
+  }, [searchQuery, totalMatches]);
+
 
   // -------------------------------------------------------------
   // ズーム & 印刷 (Zoom & Print)
@@ -856,6 +1001,7 @@ export function App() {
               onSelectTab={handleSelectTab}
               onCloseTab={handleCloseTab}
               onNewTab={handleOpenFile}
+              onReorderTabs={handleReorderTabs}
               onRestoreClosedTab={handleRestoreClosedTab}
               canRestoreClosedTab={closedTabs.length > 0}
               pendingUpdatePaths={pendingUpdatePaths}
@@ -871,10 +1017,10 @@ export function App() {
               onClose={() => setSearchOpen(false)}
               query={searchQuery}
               onQueryChange={setSearchQuery}
-              onNext={() => {}}
-              onPrev={() => {}}
-              matchIndex={0}
-              totalMatches={0}
+              onNext={handleSearchNext}
+              onPrev={handleSearchPrev}
+              matchIndex={matchIndex}
+              totalMatches={totalMatches}
             />
 
             {/* ファイル表示 or ウェルカム初期画面 */}
@@ -883,7 +1029,7 @@ export function App() {
                 content={currentFile.content}
                 parentDir={currentFile.parentDir}
                 zoomLevel={zoomLevel}
-                onHeadingsExtracted={setTocItems}
+                onHeadingsExtracted={handleHeadingsExtracted}
               />
             ) : (
               <WelcomeView

@@ -17,6 +17,10 @@ import { TocItem } from '../types/markdown';
 import 'katex/dist/katex.min.css';
 import 'highlight.js/styles/vs2015.css';
 
+// Static plugin lists to avoid re-instantiating unified processor on every render
+const REMARK_PLUGINS = [remarkGfm, remarkMath];
+const REHYPE_PLUGINS = [rehypeRaw, rehypeSlug, rehypeKatex, rehypeHighlight];
+
 interface MarkdownViewProps {
   /** レンダリングするMarkdown文字列 */
   content: string;
@@ -31,229 +35,239 @@ interface MarkdownViewProps {
 /**
  * ローカルの相対パス画像・絶対パス画像を非同期にBase64 Data URLへ解決して表示するコンポーネント
  */
-const LocalImage: React.FC<{ src?: string; alt?: string; title?: string; parentDir: string }> = ({
-  src,
-  alt,
-  title,
-  parentDir,
-}) => {
-  const [resolvedSrc, setResolvedSrc] = useState<string>(src || '');
+const LocalImage: React.FC<{ src?: string; alt?: string; title?: string; parentDir: string }> =
+  React.memo(({ src, alt, title, parentDir }) => {
+    const [resolvedSrc, setResolvedSrc] = useState<string>(src || '');
 
-  useEffect(() => {
-    let isMounted = true;
-    if (!src) return;
+    useEffect(() => {
+      let isMounted = true;
+      if (!src) return;
 
-    // Web URL (http/https) や既にData URLの場合はそのまま使用
-    if (src.startsWith('http://') || src.startsWith('https://') || src.startsWith('data:')) {
-      setResolvedSrc(src);
-      return;
-    }
+      // Web URL (http/https) や既にData URLの場合はそのまま使用
+      if (src.startsWith('http://') || src.startsWith('https://') || src.startsWith('data:')) {
+        setResolvedSrc(src);
+        return;
+      }
 
-    // Tauri の Rust バックエンドコマンドを呼び出してローカル画像をBase64形式で取得
-    invoke<string>('read_local_asset', {
-      assetPath: src,
-      baseDir: parentDir || null,
-    })
-      .then((dataUrl) => {
-        if (isMounted) {
-          setResolvedSrc(dataUrl);
-        }
+      // Tauri の Rust バックエンドコマンドを呼び出してローカル画像をBase64形式で取得
+      invoke<string>('read_local_asset', {
+        assetPath: src,
+        baseDir: parentDir || null,
       })
-      .catch((err) => {
-        console.warn('ローカル画像の読み込みに失敗しました:', src, err);
-        if (isMounted) {
-          setResolvedSrc(src);
-        }
-      });
+        .then((dataUrl) => {
+          if (isMounted) {
+            setResolvedSrc(dataUrl);
+          }
+        })
+        .catch((err) => {
+          console.warn('ローカル画像の読み込みに失敗しました:', src, err);
+          if (isMounted) {
+            setResolvedSrc(src);
+          }
+        });
 
-    return () => {
-      isMounted = false;
-    };
-  }, [src, parentDir]);
+      return () => {
+        isMounted = false;
+      };
+    }, [src, parentDir]);
 
-  return <img src={resolvedSrc} alt={alt || ''} title={title} loading="lazy" />;
-};
+    return <img src={resolvedSrc} alt={alt || ''} title={title} loading="lazy" />;
+  });
+
+LocalImage.displayName = 'LocalImage';
 
 /**
  * Markdown 本文のレンダリングコンポーネント
  * GFM（表・タスクリスト）、KaTeX数式、Mermaidダイアグラム、コードハイライト、
  * GitHub Alerts、相対画像解決などを包括的に処理します。
  */
-export const MarkdownView: React.FC<MarkdownViewProps> = ({
-  content,
-  parentDir,
-  zoomLevel,
-  onHeadingsExtracted,
-}) => {
-  const containerRef = useRef<HTMLDivElement>(null);
+export const MarkdownView: React.FC<MarkdownViewProps> = React.memo(
+  ({ content, parentDir, zoomLevel, onHeadingsExtracted }) => {
+    const containerRef = useRef<HTMLDivElement>(null);
 
-  /**
-   * レンダリング完了後にDOMから実際の見出し要素（h1〜h6）を直接走査・抽出し、
-   * 目次（TOC）との100%正確なリンクを構築します。
-   */
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (!containerRef.current || !onHeadingsExtracted) return;
+    /**
+     * レンダリング完了後にDOMから実際の見出し要素（h1〜h6）を直接走査・抽出し、
+     * 目次（TOC）との100%正確なリンクを構築します。
+     */
+    useEffect(() => {
+      const timer = setTimeout(() => {
+        if (!containerRef.current || !onHeadingsExtracted) return;
 
-      const headingElements = containerRef.current.querySelectorAll<HTMLElement>(
-        'h1, h2, h3, h4, h5, h6'
-      );
+        const headingElements = containerRef.current.querySelectorAll<HTMLElement>(
+          'h1, h2, h3, h4, h5, h6'
+        );
 
-      const items: TocItem[] = [];
-      headingElements.forEach((el, index) => {
-        // IDが存在しない場合は自動連番を割り当て
-        if (!el.id) {
-          el.id = `heading-auto-${index + 1}`;
-        }
-        const level = parseInt(el.tagName.replace('H', ''), 10) || 1;
-        const text = el.textContent?.trim() || `セクション ${index + 1}`;
+        const items: TocItem[] = [];
+        headingElements.forEach((el, index) => {
+          // IDが存在しない場合は自動連番を割り当て
+          if (!el.id) {
+            el.id = `heading-auto-${index + 1}`;
+          }
+          const level = parseInt(el.tagName.replace('H', ''), 10) || 1;
+          const text = el.textContent?.trim() || `セクション ${index + 1}`;
 
-        items.push({
-          id: el.id,
-          text,
-          level,
+          items.push({
+            id: el.id,
+            text,
+            level,
+          });
         });
-      });
 
-      // 親コンポーネントへ抽出した見出し一覧を通知
-      onHeadingsExtracted(items);
-    }, 100);
+        // 親コンポーネントへ抽出した見出し一覧を通知
+        onHeadingsExtracted(items);
+      }, 80);
 
-    return () => clearTimeout(timer);
-  }, [content, onHeadingsExtracted]);
+      return () => clearTimeout(timer);
+    }, [content, onHeadingsExtracted]);
 
-  /**
-   * リンククリック時のハンドリング
-   * - ページ内アンカー（#heading）: スムーズスクロール
-   * - 外部リンク（http/https/mailto）: 外部ブラウザで安全に開く
-   */
-  const handleLinkClick = async (e: React.MouseEvent<HTMLAnchorElement>, href?: string) => {
-    if (!href) return;
+    /**
+     * リンククリック時のハンドリング
+     * - ページ内アンカー（#heading）: スムーズスクロール
+     * - 外部リンク（http/https/mailto）: 外部ブラウザで安全に開く
+     */
+    const handleLinkClick = React.useCallback(
+      async (e: React.MouseEvent<HTMLAnchorElement>, href?: string) => {
+        if (!href) return;
 
-    if (href.startsWith('#')) {
-      e.preventDefault();
-      const targetId = decodeURIComponent(href.substring(1));
-      const targetElement = document.getElementById(targetId);
-      if (targetElement) {
-        targetElement.scrollIntoView({ behavior: 'smooth' });
-      }
-      return;
-    }
+        if (href.startsWith('#')) {
+          e.preventDefault();
+          const targetId = decodeURIComponent(href.substring(1));
+          const targetElement = document.getElementById(targetId);
+          if (targetElement) {
+            targetElement.scrollIntoView({ behavior: 'smooth' });
+          }
+          return;
+        }
 
-    if (href.startsWith('http://') || href.startsWith('https://') || href.startsWith('mailto:')) {
-      e.preventDefault();
-      try {
-        await openUrl(href);
-      } catch (err) {
-        window.open(href, '_blank', 'noopener,noreferrer');
-      }
-    }
-  };
+        if (
+          href.startsWith('http://') ||
+          href.startsWith('https://') ||
+          href.startsWith('mailto:')
+        ) {
+          e.preventDefault();
+          try {
+            await openUrl(href);
+          } catch {
+            window.open(href, '_blank', 'noopener,noreferrer');
+          }
+        }
+      },
+      []
+    );
 
-  return (
-    <div
-      ref={containerRef}
-      className="markdown-body"
-      style={{
-        transform: `scale(${zoomLevel})`,
-      }}
-    >
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm, remarkMath]}
-        rehypePlugins={[rehypeRaw, rehypeSlug, rehypeKatex, rehypeHighlight]}
-        components={{
-          // コードブロックおよび Mermaid のカスタムレンダリング
-          code({ className, children, ...props }) {
-            const match = /language-(\w+)/.exec(className || '');
-            const language = match ? match[1] : '';
-            const codeString = String(children).replace(/\n$/, '');
+    /**
+     * ReactMarkdown 用のカスタムコンポーネントマップ（parentDir 変更時のみ再生成）
+     */
+    const components = React.useMemo(
+      () => ({
+        // コードブロックおよび Mermaid のカスタムレンダリング
+        code({ className, children, ...props }: any) {
+          const match = /language-(\w+)/.exec(className || '');
+          const language = match ? match[1] : '';
+          const codeString = String(children).replace(/\n$/, '');
 
-            // Mermaid ダイアグラムの場合
-            if (language === 'mermaid') {
-              return <MermaidBlock chart={codeString} />;
-            }
+          // Mermaid ダイアグラムの場合
+          if (language === 'mermaid') {
+            return <MermaidBlock chart={codeString} />;
+          }
 
-            // 複数行コードブロックの場合
-            const isCodeBlock = match || String(children).includes('\n');
-            if (isCodeBlock) {
+          // 複数行コードブロックの場合
+          const isCodeBlock = match || String(children).includes('\n');
+          if (isCodeBlock) {
+            return (
+              <CodeBlock language={language} value={codeString}>
+                {children}
+              </CodeBlock>
+            );
+          }
+
+          // インラインコードの場合
+          return (
+            <code className={className} {...props}>
+              {children}
+            </code>
+          );
+        },
+
+        // 引用（blockquote）および GitHub Alerts 構文のカスタムレンダリング
+        blockquote({ children }: any) {
+          const childrenArray = React.Children.toArray(children);
+          const firstChild = childrenArray[0];
+
+          if (
+            React.isValidElement<{ children?: React.ReactNode }>(firstChild) &&
+            firstChild.props &&
+            firstChild.props.children
+          ) {
+            const innerText = React.Children.toArray(firstChild.props.children)
+              .map((c) => (typeof c === 'string' ? c : ''))
+              .join('')
+              .trim();
+
+            // [!NOTE], [!TIP], [!IMPORTANT], [!WARNING], [!CAUTION] を判定
+            const alertMatch = /^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]/i.exec(innerText);
+
+            if (alertMatch) {
+              const alertType = alertMatch[1].toLowerCase() as AlertType;
+              const cleanedChildren = React.Children.map(firstChild.props.children, (child) => {
+                if (typeof child === 'string') {
+                  return child.replace(/^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]/i, '').trim();
+                }
+                return child;
+              });
+
+              const updatedFirstChild = React.cloneElement(firstChild, {}, cleanedChildren);
+              const remainingChildren = childrenArray.slice(1);
+
               return (
-                <CodeBlock language={language} value={codeString}>
-                  {children}
-                </CodeBlock>
+                <AlertBlock type={alertType}>
+                  {updatedFirstChild}
+                  {remainingChildren}
+                </AlertBlock>
               );
             }
+          }
 
-            // インラインコードの場合
-            return (
-              <code className={className} {...props}>
-                {children}
-              </code>
-            );
-          },
+          return <blockquote>{children}</blockquote>;
+        },
 
-          // 引用（blockquote）および GitHub Alerts 構文のカスタムレンダリング
-          blockquote({ children }) {
-            const childrenArray = React.Children.toArray(children);
-            const firstChild = childrenArray[0];
+        // 画像要素（ローカル相対パスの自動解決対応）
+        img({ src, alt, title }: any) {
+          return <LocalImage src={src} alt={alt} title={title} parentDir={parentDir} />;
+        },
 
-            if (
-              React.isValidElement<{ children?: React.ReactNode }>(firstChild) &&
-              firstChild.props &&
-              firstChild.props.children
-            ) {
-              const innerText = React.Children.toArray(firstChild.props.children)
-                .map((c) => (typeof c === 'string' ? c : ''))
-                .join('')
-                .trim();
+        // リンク要素（安全な外部リンクオープナー連携）
+        a({ href, children, ...props }: any) {
+          return (
+            <a href={href} onClick={(e) => handleLinkClick(e, href)} {...props}>
+              {children}
+            </a>
+          );
+        },
+      }),
+      [parentDir, handleLinkClick]
+    );
 
-              // [!NOTE], [!TIP], [!IMPORTANT], [!WARNING], [!CAUTION] を判定
-              const alertMatch = /^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]/i.exec(innerText);
-
-              if (alertMatch) {
-                const alertType = alertMatch[1].toLowerCase() as AlertType;
-                const cleanedChildren = React.Children.map(firstChild.props.children, (child) => {
-                  if (typeof child === 'string') {
-                    return child.replace(/^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]/i, '').trim();
-                  }
-                  return child;
-                });
-
-                const updatedFirstChild = React.cloneElement(firstChild, {}, cleanedChildren);
-                const remainingChildren = childrenArray.slice(1);
-
-                return (
-                  <AlertBlock type={alertType}>
-                    {updatedFirstChild}
-                    {remainingChildren}
-                  </AlertBlock>
-                );
-              }
-            }
-
-            return <blockquote>{children}</blockquote>;
-          },
-
-          // 画像要素（ローカル相対パスの自動解決対応）
-          img({ src, alt, title }) {
-            return <LocalImage src={src} alt={alt} title={title} parentDir={parentDir} />;
-          },
-
-          // リンク要素（安全な外部リンクオープナー連携）
-          a({ href, children, ...props }) {
-            return (
-              <a
-                href={href}
-                onClick={(e) => handleLinkClick(e, href)}
-                {...props}
-              >
-                {children}
-              </a>
-            );
-          },
+    return (
+      <div
+        ref={containerRef}
+        className="markdown-body"
+        style={{
+          transform: `scale(${zoomLevel})`,
+          transformOrigin: 'top center',
         }}
       >
-        {content}
-      </ReactMarkdown>
-    </div>
-  );
-};
+        <ReactMarkdown
+          remarkPlugins={REMARK_PLUGINS}
+          rehypePlugins={REHYPE_PLUGINS}
+          components={components}
+        >
+          {content}
+        </ReactMarkdown>
+      </div>
+    );
+  }
+);
+
+MarkdownView.displayName = 'MarkdownView';
+

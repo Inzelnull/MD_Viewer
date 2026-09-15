@@ -40,6 +40,8 @@
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: none; /* Firefox */
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .tab-list::-webkit-scrollbar {
@@ -60,10 +62,14 @@
   background-color: var(--bg-secondary);
   border-right: 1px solid var(--border-subtle);
   cursor: pointer;
-  transition: all 0.12s ease;
+  transition: background-color 0.12s ease, opacity 0.12s ease, color 0.12s ease;
   position: relative;
   box-sizing: border-box;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
 }
+
 
 .tab-item:hover {
   background-color: var(--bg-hover);
@@ -79,6 +85,39 @@
   border-bottom: 2px solid var(--accent-color);
   box-shadow: inset 0 2px 0 var(--accent-color);
 }
+
+.tab-item.tab-item-dragging {
+  opacity: 0.35;
+  background-color: var(--bg-tertiary);
+  cursor: grabbing;
+}
+
+.tab-item.tab-drag-over-left::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background-color: var(--accent-color);
+  border-radius: 2px;
+  z-index: 10;
+  box-shadow: 0 0 6px var(--accent-color);
+}
+
+.tab-item.tab-drag-over-right::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background-color: var(--accent-color);
+  border-radius: 2px;
+  z-index: 10;
+  box-shadow: 0 0 6px var(--accent-color);
+}
+
 
 .tab-icon {
   flex-shrink: 0;

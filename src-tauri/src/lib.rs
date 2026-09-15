@@ -229,24 +229,23 @@ fn start_watch_file(
 
         thread::spawn(move || {
             let mut last_modified_map: HashMap<String, u64> = HashMap::new();
+            let mut path_buffer: Vec<String> = Vec::new();
 
             while is_running.load(Ordering::SeqCst) {
                 thread::sleep(Duration::from_millis(500));
 
-                let paths: Vec<String> = {
-                    if let Ok(guard) = watching_paths.lock() {
-                        guard.iter().cloned().collect()
-                    } else {
-                        Vec::new()
+                path_buffer.clear();
+                if let Ok(guard) = watching_paths.lock() {
+                    if guard.is_empty() {
+                        continue;
                     }
-                };
-
-                if paths.is_empty() {
+                    path_buffer.extend(guard.iter().cloned());
+                } else {
                     continue;
                 }
 
-                for file_path in paths {
-                    let p = Path::new(&file_path);
+                for file_path in &path_buffer {
+                    let p = Path::new(file_path);
                     if let Ok(meta) = fs::metadata(p) {
                         if let Ok(mod_time) = meta.modified() {
                             let mod_millis = mod_time
@@ -254,10 +253,10 @@ fn start_watch_file(
                                 .unwrap_or_default()
                                 .as_millis() as u64;
 
-                            if let Some(&prev_mod) = last_modified_map.get(&file_path) {
+                            if let Some(&prev_mod) = last_modified_map.get(file_path) {
                                 if mod_millis > prev_mod {
                                     last_modified_map.insert(file_path.clone(), mod_millis);
-                                    let _ = app_handle.emit("file-changed", &file_path);
+                                    let _ = app_handle.emit("file-changed", file_path);
                                 }
                             } else {
                                 last_modified_map.insert(file_path.clone(), mod_millis);
