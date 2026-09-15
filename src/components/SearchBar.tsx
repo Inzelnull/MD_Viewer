@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Search, ChevronUp, ChevronDown, X } from 'lucide-react';
+import { Search, ChevronUp, ChevronDown, X } from './icons';
 
 interface SearchBarProps {
   /** 検索バーの表示状態 */

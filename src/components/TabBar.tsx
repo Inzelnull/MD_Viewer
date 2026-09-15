@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { FileCode, Plus, X } from 'lucide-react';
+import { FileCode, Plus, X } from './icons';
 import { TabItem } from '../types/markdown';
 
 interface TabBarProps {

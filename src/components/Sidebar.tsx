@@ -1,5 +1,5 @@
 import React from 'react';
-import { ListCollapse, FileText, Calendar, AlignLeft, HardDrive } from 'lucide-react';
+import { ListCollapse, FileText, Calendar, AlignLeft, HardDrive } from './icons';
 import { TocItem, FileMetadata } from '../types/markdown';
 
 interface SidebarProps {

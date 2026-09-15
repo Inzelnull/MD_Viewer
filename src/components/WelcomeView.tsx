@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FileUp, FolderOpen, Sparkles } from 'lucide-react';
+import { FileUp, FolderOpen, Sparkles } from './icons';
 
 interface WelcomeViewProps {
   /** ファイルオープンダイアログを起動する関数 */

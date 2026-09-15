@@ -1,11 +1,10 @@
-import React from 'react';
 import {
   Info,
   Lightbulb,
   AlertCircle,
   AlertTriangle,
   Flame,
-} from 'lucide-react';
+} from './icons';
 
 /**
  * サポートするGitHub Alertの種類

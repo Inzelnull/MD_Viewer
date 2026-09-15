@@ -13,7 +13,7 @@ import {
   Moon,
   Monitor,
   Layers,
-} from 'lucide-react';
+} from './icons';
 import { ThemeSetting } from '../types/markdown';
 
 interface HeaderProps {
