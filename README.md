@@ -82,6 +82,55 @@ Visual Studio Code の Markdown Preview のような、リッチで高速なMark
 
 ---
 
+## 📁 プロジェクト構成 (File Structure)
+
+```text
+MD_Viewer/
+├── src/                          # フロントエンド (React + TypeScript)
+│   ├── assets/                   # 静的アセット（画像等）
+│   ├── components/               # UIコンポーネント
+│   │   ├── AlertBlock.tsx        # GitHub Alerts表示コンポーネント
+│   │   ├── CodeBlock.tsx         # シンタックスハイライト・コードブロック
+│   │   ├── Header.tsx            # アプリケーションヘッダー・ツールバー
+│   │   ├── MarkdownView.tsx      # Markdownプレビュー描画領域
+│   │   ├── MermaidBlock.tsx      # Mermaid図描画コンポーネント
+│   │   ├── SearchBar.tsx         # 文書内検索バー
+│   │   ├── Sidebar.tsx           # 目次 (TOC) ・文書統計サイドバー
+│   │   ├── TabBar.tsx            # ドラッグ＆ドロップ対応タブバー
+│   │   ├── WelcomeView.tsx       # ファイル未読込時のウェルカム画面
+│   │   └── icons.tsx             # 自作SVGアイコン定義群
+│   ├── styles/                   # スタイルシート (CSS)
+│   │   ├── components.css        # 各UIコンポーネント用スタイル
+│   │   ├── markdown.css          # Markdownレンダリング用スタイル
+│   │   └── theme.css             # カラーテーマ定義 (Light/Dark)
+│   ├── types/                    # TypeScript 型定義
+│   │   └── markdown.ts           # タブ、目次、設定等の型定義
+│   ├── utils/                    # ユーティリティ関数
+│   │   ├── sampleMarkdown.ts     # 初期表示用サンプルMarkdown
+│   │   └── toc.ts                # 目次抽出・統計計算ユーティリティ
+│   ├── App.tsx                   # メインアプリケーションコンポーネント
+│   ├── App.css                   # 全体レイアウトスタイル
+│   └── main.tsx                  # フロントエンドエントリーポイント
+│
+├── src-tauri/                    # バックエンド (Tauri v2 + Rust)
+│   ├── capabilities/             # Tauri v2 権限・ケイパビリティ設定
+│   ├── icons/                    # アプリアイコンリソース
+│   ├── src/
+│   │   ├── lib.rs                # ネイティブバックエンド処理 (ファイル監視/ダイアログ/モニタ配置等)
+│   │   └── main.rs               # Rustエントリーポイント
+│   ├── Cargo.toml                # Rust依存関係定義
+│   └── tauri.conf.json           # Tauri設定ファイル
+│
+├── LICENSE                       # MITライセンス
+├── LICENSE_AUDIT.md              # ライセンス監査・サプライチェーン監査記録
+├── package.json                  # Node.js依存関係・スクリプト定義
+├── README.md                     # 本ドキュメント
+├── THIRD_PARTY_LIBRARIES.md      # サードパーティライセンス一覧
+└── vite.config.ts                # Viteビルド設定
+```
+
+---
+
 ## 🚀 開発・ビルド手順
 
 ### 動作前提条件
