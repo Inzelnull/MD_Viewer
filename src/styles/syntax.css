@@ -1,0 +1,199 @@
+/**
+ * syntect (TextMate) シンタックスハイライト スタイルシート
+ * VS Code Dark Modern および Light Modern に準拠したカラーパレット
+ */
+
+/* ==========================================================================
+   ダークモード（デフォルト、GitHub Dark、ハイコントラスト共通）
+   ========================================================================== */
+:root,
+[data-theme="dark"],
+[data-theme="github-dark"],
+[data-theme="high-contrast"] {
+  /* コメント */
+  .comment,
+  .punctuation.definition.comment {
+    color: #6a9955;
+    font-style: italic;
+  }
+
+  /* 文字列 */
+  .string,
+  .punctuation.definition.string {
+    color: #ce9178;
+  }
+
+  /* 正規表現・エスケープ文字 */
+  .string.regexp,
+  .constant.character.escape {
+    color: #d7ba7d;
+  }
+
+  /* キーワード・文法予約語 */
+  .keyword,
+  .keyword.control {
+    color: #c586c0;
+  }
+
+  /* 宣言・型キーワード (const, let, function, fn, struct 等) */
+  .storage,
+  .storage.type,
+  .storage.modifier {
+    color: #569cd6;
+  }
+
+  /* 演算子・区切り文字 */
+  .keyword.operator {
+    color: #d4d4d4;
+  }
+  .punctuation.separator,
+  .punctuation.terminator {
+    color: #cccccc;
+  }
+
+  /* 関数名・メソッド名 */
+  .entity.name.function,
+  .support.function,
+  .variable.function {
+    color: #dcdcaa;
+  }
+
+  /* クラス名・構造体・型・インターフェース */
+  .entity.name.class,
+  .entity.name.type,
+  .support.class,
+  .support.type {
+    color: #4ec9b0;
+  }
+
+  /* 数値 */
+  .constant.numeric {
+    color: #b5cea8;
+  }
+
+  /* 定数・言語定数 (true, false, null, None 等) */
+  .constant.language,
+  .constant {
+    color: #569cd6;
+  }
+
+  /* 変数・引数・プロパティ */
+  .variable,
+  .variable.parameter,
+  .variable.other {
+    color: #9cdcfe;
+  }
+  .variable.language {
+    color: #569cd6;
+  }
+
+  /* HTML / XML タグと属性 */
+  .entity.name.tag {
+    color: #569cd6;
+  }
+  .entity.other.attribute-name {
+    color: #9cdcfe;
+  }
+
+  /* エラー */
+  .invalid.illegal {
+    color: #f44747;
+    text-decoration: underline;
+  }
+}
+
+/* ==========================================================================
+   ライトモード（VS Code Light Modern）
+   ========================================================================== */
+[data-theme="light"] {
+  /* コメント */
+  .comment,
+  .punctuation.definition.comment {
+    color: #008000;
+    font-style: italic;
+  }
+
+  /* 文字列 */
+  .string,
+  .punctuation.definition.string {
+    color: #a31515;
+  }
+
+  /* 正規表現・エスケープ文字 */
+  .string.regexp,
+  .constant.character.escape {
+    color: #811f3f;
+  }
+
+  /* キーワード・文法予約語 */
+  .keyword,
+  .keyword.control {
+    color: #af00db;
+  }
+
+  /* 宣言・型キーワード */
+  .storage,
+  .storage.type,
+  .storage.modifier {
+    color: #0000ff;
+  }
+
+  /* 演算子・区切り文字 */
+  .keyword.operator {
+    color: #000000;
+  }
+  .punctuation.separator,
+  .punctuation.terminator {
+    color: #333333;
+  }
+
+  /* 関数名・メソッド名 */
+  .entity.name.function,
+  .support.function,
+  .variable.function {
+    color: #795e26;
+  }
+
+  /* クラス名・構造体・型・インターフェース */
+  .entity.name.class,
+  .entity.name.type,
+  .support.class,
+  .support.type {
+    color: #267f99;
+  }
+
+  /* 数値 */
+  .constant.numeric {
+    color: #098658;
+  }
+
+  /* 定数・言語定数 */
+  .constant.language,
+  .constant {
+    color: #0000ff;
+  }
+
+  /* 変数・引数・プロパティ */
+  .variable,
+  .variable.parameter,
+  .variable.other {
+    color: #001080;
+  }
+  .variable.language {
+    color: #0000ff;
+  }
+
+  /* HTML / XML タグと属性 */
+  .entity.name.tag {
+    color: #800000;
+  }
+  .entity.other.attribute-name {
+    color: #e50000;
+  }
+
+  /* エラー */
+  .invalid.illegal {
+    color: #cd3131;
+    text-decoration: underline;
+  }
+}

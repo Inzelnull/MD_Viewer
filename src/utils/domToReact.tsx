@@ -141,9 +141,14 @@ function convertNodeToReact(
         return <MermaidBlock key={key} chart={codeString} />;
       }
 
-      // 通常のコードブロック
+      // 通常のコードブロック（Rust syntect で生成されたハイライト済みHTMLを渡す）
       return (
-        <CodeBlock key={key} language={language} value={codeString}>
+        <CodeBlock
+          key={key}
+          language={language}
+          value={codeString}
+          highlightedHtml={codeEl.innerHTML}
+        >
           {codeString}
         </CodeBlock>
       );

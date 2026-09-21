@@ -14,10 +14,10 @@ Visual Studio Code の Markdown Preview のような、リッチで高速なMark
 
 ## ✨ 主な機能
 
-1. **リッチなMarkdownレンダリング (Rust公式基盤 pulldown-cmark 採用)**
-   - **Rust バックエンドパース**: `rustdoc` 公式採用の `pulldown-cmark` による超高速・メモリ安全な構文解析
+1. **リッチなMarkdownレンダリング (Rust基盤 pulldown-cmark + syntect 採用)**
+   - **Rust バックエンドパース & 構文着色**: `rustdoc` 公式採用の `pulldown-cmark` と Sublime Text互換の `syntect`（Pure Rust構成）による超高速・メモリ安全な構文解析・着色処理
    - GitHub Flavored Markdown（テーブル、タスクリスト、取り消し線など）
-   - VS Code風のシンタックスハイライト付きコードブロック（言語バッジ、ワンクリックコードコピー）
+   - VS Code風のシンタックスハイライト付きコードブロック（Rustネイティブ処理、言語バッジ、ワンクリックコードコピー）
    - GitHub Alerts (`> [!NOTE]`, `> [!TIP]`, `> [!IMPORTANT]`, `> [!WARNING]`, `> [!CAUTION]`)
    - LaTeX 数式レンダリング（KaTeX対応: インライン `$E=mc^2$`、ブロック `$$\int...$$`）
    - Mermaid ダイアグラム描画（フローチャート、シーケンス図等）
@@ -51,6 +51,7 @@ Visual Studio Code の Markdown Preview のような、リッチで高速なMark
 8. **デュアルディスプレイ・マルチモニター対応**
    - 起動元フォルダーがあるディスプレイを自動検出し、その画面の中央に起動
 9. **徹底したサプライチェーン・セキュリティ**
+   - フロントエンドの `highlight.js` を完全排除し、Rustネイティブの `syntect` へ統合（UIスレッド負荷ゼロ、JSサプライチェーン脆弱性リスクを根絶）
    - `unifiedjs / wooorm` の 7 パッケージ（推移的依存含め 134 パッケージ）を完全排除
    - 個人製クレート（`rfd`, `notify`, `base64`, `mime_guess`）やアイコンパッケージ（`lucide-react`）を完全撤廃し、Rust標準／OS標準API／自作SVGコンポーネントへ置換
 
@@ -102,7 +103,7 @@ MD_Viewer/
 │   ├── assets/                   # 静的アセット（画像等）
 │   ├── components/               # UIコンポーネント
 │   │   ├── AlertBlock.tsx        # GitHub Alerts表示コンポーネント
-│   │   ├── CodeBlock.tsx         # シンタックスハイライト・コードブロック (highlight.js連携)
+│   │   ├── CodeBlock.tsx         # シンタックスハイライト・コードブロック (Rust syntect連携)
 │   │   ├── Header.tsx            # アプリケーションヘッダー・ツールバー
 │   │   ├── MarkdownView.tsx      # Markdownプレビュー描画領域
 │   │   ├── MermaidBlock.tsx      # Mermaid図描画コンポーネント
@@ -114,6 +115,7 @@ MD_Viewer/
 │   ├── styles/                   # スタイルシート (CSS)
 │   │   ├── components.css        # 各UIコンポーネント用スタイル
 │   │   ├── markdown.css          # Markdownレンダリング用スタイル
+│   │   ├── syntax.css            # syntect構文ハイライト用スタイル (Dark/Light対応)
 │   │   └── theme.css             # カラーテーマ定義 (Light/Dark)
 │   ├── types/                    # TypeScript 型定義
 │   │   └── markdown.ts           # タブ、目次、設定等の型定義
@@ -129,11 +131,11 @@ MD_Viewer/
 │   ├── capabilities/             # Tauri v2 権限・ケイパビリティ設定
 │   ├── icons/                    # アプリアイコンリソース
 │   ├── src/
-│   │   ├── lib.rs                # ネイティブ処理 (pulldown-cmarkパース/ファイル監視/ファイル関連付け)
+│   │   ├── lib.rs                # ネイティブ処理 (pulldown-cmark+syntect/ファイル監視/関連付け)
 │   │   └── main.rs               # Rustエントリーポイント
 │   ├── tests/                    # バックエンド単体・結合テスト
-│   │   └── markdown_test.rs      # pulldown-cmark HTML出力テスト
-│   ├── Cargo.toml                # Rust依存関係定義 (pulldown-cmark追加)
+│   │   └── markdown_test.rs      # pulldown-cmark + syntect HTML出力テスト
+│   ├── Cargo.toml                # Rust依存関係定義 (pulldown-cmark, syntect追加)
 │   └── tauri.conf.json           # Tauri設定ファイル (クロスプラットフォーム対応)
 │
 ├── LICENSE                       # MITライセンス

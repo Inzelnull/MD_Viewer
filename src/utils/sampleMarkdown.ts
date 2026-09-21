@@ -39,8 +39,8 @@ Welcome to the **Tauri-powered Markdown Preview Application**! This viewer is en
 
 | Feature | Support Status | Renderer | Performance |
 | :--- | :---: | :--- | :--- |
-| **GFM Tables** | ✅ Yes | Unified / Remark | Sub-millisecond |
-| **Syntax Highlight** | ✅ Yes | Highlight.js | Instant |
+| **GFM Tables** | ✅ Yes | pulldown-cmark (Rust) | Sub-millisecond |
+| **Syntax Highlight** | ✅ Yes | Syntect (Rust) | Instant |
 | **KaTeX Math** | ✅ Yes | KaTeX v0.16 | Fast DOM |
 | **Mermaid Charts** | ✅ Yes | Mermaid.js | Vector SVG |
 | **Live Hot Reload** | ✅ Yes | Rust Native Watcher | Instant IPC |
@@ -108,11 +108,11 @@ $$
 ### Architecture Flowchart
 \`\`\`mermaid
 graph TD
-    A[Markdown File on Disk] -->|File Mod Time| B(Tauri Rust Backend)
-    B -->|IPC emit 'file-changed'| C(React WebView)
-    C -->|Unified / Remark Parser| D{Rehype Pipeline}
+    A[Markdown File on Disk] -->|File Watcher| B(Tauri Rust Backend)
+    B -->|pulldown-cmark + syntect| C(Fast HTML Generation)
+    C -->|IPC render_markdown| D{React WebView}
     D --> E[GFM Table / Tasklist]
-    D --> F[Highlight.js Code]
+    D --> F[Syntect Code Block]
     D --> G[KaTeX Math Engine]
     D --> H[Mermaid SVG Renderer]
     E & F & G & H --> I[Rich VS Code Preview UI]

@@ -17,6 +17,8 @@
 | **serde** | `^1.0` | Rust データ構造のシリアライズ / デシリアライズ | Rust Core Team / dtolnay | MIT or Apache-2.0 |
 | **serde_json** | `^1.0` | JSON データのシリアライズ / パース | Rust Core Team / dtolnay | MIT or Apache-2.0 |
 
+| **syntect** | `^5.3` | Sublime Text互換の高速・安全なシンタックスハイライトエンジン（Pure Rust構成 / `bat` 等で採用） | Tristan Hume / syntect team | MIT |
+
 > **自前化・標準API化により排除したクレート**:
 > - `rfd` → Windows標準API（PowerShell / Win32 ダイアログ連携）へ自前化
 > - `notify` → Rust標準スレッド＋タイムスタンプポーリング監視へ自前化
@@ -36,10 +38,10 @@
 | **@tauri-apps/api** | `^2.11` | Tauri IPC通信・イベントハンドリング用JSクライアント | Tauri Foundation | MIT or Apache-2.0 |
 | **@tauri-apps/plugin-opener** | `^2.5` | 外部ブラウザ・URL起動用TauriプラグインAPI | Tauri Foundation | MIT or Apache-2.0 |
 | **katex** | `^0.18` | 高速な数式レンダリングライブラリ本体・CSSフォント | Khan Academy | MIT |
-| **highlight.js** | `^11.12` | シンタックスハイライトエンジン本体・テーマ | highlight.js team | BSD-3-Clause |
 | **mermaid** | `^11.17` | テキスト記法によるダイアグラム（フローチャート、シーケンス図等）生成 | mermaid-js team | MIT |
 
-> **自前化・標準API化により排除したパッケージ**:
+> **自前化・標準API化・Rust移行により排除したパッケージ**:
+> - `highlight.js` → **Rust公式基盤の `syntect` バックエンドハイライト** へ完全移行・一掃（フロントエンドのJSサプライチェーン脆弱性リスクを根絶、UIスレッド負荷ゼロ化）
 > - `unifiedjs / wooorm` 管理の 7 パッケージ群（`react-markdown`, `remark-gfm`, `remark-math`, `rehype-katex`, `rehype-raw`, `rehype-slug`, `rehype-highlight` および関連推移的依存 134 パッケージ）  
 >   → **Rust 公式基盤の `pulldown-cmark` バックエンドパース** および **ブラウザ標準 `DOMParser` を活用した自作トランスフォーマー（`src/utils/domToReact.tsx`）** へ完全移行・一掃（特定個人への集中依存およびサプライチェーン脆弱性リスクを根絶）
 > - `lucide-react` → 自作純粋インラインSVGコンポーネント（`src/components/icons.tsx`）へ完全置換（依存ゼロ）

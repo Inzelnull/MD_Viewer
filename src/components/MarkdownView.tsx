@@ -6,7 +6,8 @@ import { TocItem } from '../types/markdown';
 import { domToReact } from '../utils/domToReact';
 
 import 'katex/dist/katex.min.css';
-import 'highlight.js/styles/vs2015.css';
+import '../styles/syntax.css';
+
 
 interface MarkdownViewProps {
   /** レンダリングするMarkdown文字列 */

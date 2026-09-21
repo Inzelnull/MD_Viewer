@@ -1,45 +1,30 @@
-import React, { useState, useMemo } from 'react';
-import hljs from 'highlight.js';
+import React, { useState, useCallback } from 'react';
 import { Check, Copy } from './icons';
 
 interface CodeBlockProps {
   /** 言語名（例: typescript, rust, python） */
   language: string;
-  /** コードの文字列 */
+  /** コピー用のプレーンテキストコード文字列 */
   value: string;
-  /** ハイライト済みのReact要素（オプショナル） */
+  /** Rust (syntect) により生成されたハイライト済みHTML（オプショナル） */
+  highlightedHtml?: string;
+  /** 子要素（オプショナル） */
   children?: React.ReactNode;
 }
 
 /**
  * VS Code風のシンタックスハイライト付きコードブロックコンポーネント
  * ヘッダー部に言語バッジとワンクリックコードコピーボタンを表示します。
+ * ハイライトは Rust バックエンド（syntect）でネイティブ処理されます。
  */
 export const CodeBlock: React.FC<CodeBlockProps> = React.memo(
-  ({ language, value, children }) => {
+  ({ language, value, highlightedHtml, children }) => {
     const [copied, setCopied] = useState(false);
-
-    // highlight.js を直接呼び出してコードハイライト HTML を生成
-    const highlightedHtml = useMemo(() => {
-      if (!value) return '';
-      if (language && hljs.getLanguage(language)) {
-        try {
-          return hljs.highlight(value, { language }).value;
-        } catch {
-          // 指定言語で失敗した場合は自動検出へフォールバック
-        }
-      }
-      try {
-        return hljs.highlightAuto(value).value;
-      } catch {
-        return '';
-      }
-    }, [language, value]);
 
     /**
      * クリップボードへのコピー処理
      */
-    const handleCopy = async () => {
+    const handleCopy = useCallback(async () => {
       try {
         await navigator.clipboard.writeText(value);
         setCopied(true);
@@ -48,7 +33,7 @@ export const CodeBlock: React.FC<CodeBlockProps> = React.memo(
       } catch (err) {
         console.error('クリップボードへのコピーに失敗しました: ', err);
       }
-    };
+    }, [value]);
 
     return (
       <div className="code-block-wrapper">
@@ -78,7 +63,7 @@ export const CodeBlock: React.FC<CodeBlockProps> = React.memo(
         <pre>
           {highlightedHtml ? (
             <code
-              className={`hljs ${language ? `language-${language}` : ''}`}
+              className={language ? `language-${language}` : ''}
               dangerouslySetInnerHTML={{ __html: highlightedHtml }}
             />
           ) : (
@@ -91,4 +76,5 @@ export const CodeBlock: React.FC<CodeBlockProps> = React.memo(
 );
 
 CodeBlock.displayName = 'CodeBlock';
+
 

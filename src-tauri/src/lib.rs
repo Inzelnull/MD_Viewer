@@ -4,10 +4,17 @@ use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, LazyLock, Mutex};
 use std::thread;
 use std::time::{Duration, UNIX_EPOCH};
+use syntect::html::{ClassStyle, ClassedHTMLGenerator};
+use syntect::parsing::SyntaxSet;
+use syntect::util::LinesWithEndings;
 use tauri::{AppHandle, Emitter, Manager, State};
+
+/// Sublime Text / TextMate 互換の構文定義セット（初回アクセス時に一度だけ初期化）
+static SYNTAX_SET: LazyLock<SyntaxSet> = LazyLock::new(|| SyntaxSet::load_defaults_newlines());
+
 
 /// フロントエンドに返却するMarkdownファイルの情報構造体
 #[derive(Debug, Serialize, Deserialize)]
@@ -485,9 +492,9 @@ pub fn run() {
     });
 }
 
-/// pulldown-cmark を使用して Markdown を HTML 文字列にパース・変換するコア関数
+/// pulldown-cmark と syntect を使用して Markdown を HTML 文字列にパース・構文ハイライト変換するコア関数
 pub fn parse_markdown_to_html(content: &str) -> String {
-    use pulldown_cmark::{html, Options, Parser};
+    use pulldown_cmark::{html, CodeBlockKind, CowStr, Event, Options, Parser, Tag, TagEnd};
 
     let mut options = Options::empty();
     options.insert(Options::ENABLE_TABLES);
@@ -497,8 +504,92 @@ pub fn parse_markdown_to_html(content: &str) -> String {
     options.insert(Options::ENABLE_HEADING_ATTRIBUTES);
 
     let parser = Parser::new_ext(content, options);
+
+    let mut in_code_block = false;
+    let mut code_lang = String::new();
+    let mut code_buffer = String::new();
+    let mut events = Vec::new();
+
+    for event in parser {
+        match event {
+            Event::Start(Tag::CodeBlock(kind)) => {
+                in_code_block = true;
+                code_buffer.clear();
+                code_lang = match kind {
+                    CodeBlockKind::Fenced(lang) => lang.to_string(),
+                    CodeBlockKind::Indented => String::new(),
+                };
+            }
+            Event::End(TagEnd::CodeBlock) => {
+                if in_code_block {
+                    in_code_block = false;
+                    let trimmed_lang = code_lang
+                        .split_whitespace()
+                        .next()
+                        .unwrap_or("")
+                        .to_lowercase();
+
+                    if trimmed_lang == "mermaid" {
+                        // フロントエンドの Mermaid.js 描画用に標準コードブロックとして保持
+                        events.push(Event::Start(Tag::CodeBlock(CodeBlockKind::Fenced(
+                            CowStr::Boxed(code_lang.clone().into_boxed_str()),
+                        ))));
+                        events.push(Event::Text(CowStr::Boxed(
+                            code_buffer.clone().into_boxed_str(),
+                        )));
+                        events.push(Event::End(TagEnd::CodeBlock));
+                    } else {
+                        // syntect を使用して TextMate クラス付き HTML に変換
+                        let syntax = if trimmed_lang.is_empty() {
+                            SYNTAX_SET.find_syntax_plain_text()
+                        } else {
+                            SYNTAX_SET
+                                .find_syntax_by_token(&trimmed_lang)
+                                .unwrap_or_else(|| SYNTAX_SET.find_syntax_plain_text())
+                        };
+
+                        let mut generator = ClassedHTMLGenerator::new_with_class_style(
+                            syntax,
+                            &SYNTAX_SET,
+                            ClassStyle::Spaced,
+                        );
+
+                        for line in LinesWithEndings::from(&code_buffer) {
+                            let _ = generator.parse_html_for_line_which_includes_newline(line);
+                        }
+
+                        let highlighted_inner = generator.finalize();
+                        let lang_class = if trimmed_lang.is_empty() {
+                            String::new()
+                        } else {
+                            format!(" class=\"language-{}\"", trimmed_lang)
+                        };
+
+                        let html = format!(
+                            "<pre><code{}>{}</code></pre>\n",
+                            lang_class, highlighted_inner
+                        );
+                        events.push(Event::Html(CowStr::Boxed(html.into_boxed_str())));
+                    }
+                }
+            }
+            Event::Text(text) => {
+                if in_code_block {
+                    code_buffer.push_str(&text);
+                } else {
+                    events.push(Event::Text(text));
+                }
+            }
+            other => {
+                if !in_code_block {
+                    events.push(other);
+                }
+            }
+        }
+    }
+
     let mut html_output = String::with_capacity(content.len() * 3 / 2);
-    html::push_html(&mut html_output, parser);
+    html::push_html(&mut html_output, events.into_iter());
     html_output
 }
 
