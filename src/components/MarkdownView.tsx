@@ -1,25 +1,12 @@
-import React, { useEffect, useState, useRef } from 'react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import remarkMath from 'remark-math';
-import rehypeKatex from 'rehype-katex';
-import rehypeRaw from 'rehype-raw';
-import rehypeSlug from 'rehype-slug';
-import rehypeHighlight from 'rehype-highlight';
+import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { openUrl } from '@tauri-apps/plugin-opener';
 
-import { CodeBlock } from './CodeBlock';
-import { MermaidBlock } from './MermaidBlock';
-import { AlertBlock, AlertType } from './AlertBlock';
 import { TocItem } from '../types/markdown';
+import { domToReact } from '../utils/domToReact';
 
 import 'katex/dist/katex.min.css';
 import 'highlight.js/styles/vs2015.css';
-
-// Static plugin lists to avoid re-instantiating unified processor on every render
-const REMARK_PLUGINS = [remarkGfm, remarkMath];
-const REHYPE_PLUGINS = [rehypeRaw, rehypeSlug, rehypeKatex, rehypeHighlight];
 
 interface MarkdownViewProps {
   /** レンダリングするMarkdown文字列 */
@@ -78,54 +65,46 @@ LocalImage.displayName = 'LocalImage';
 
 /**
  * Markdown 本文のレンダリングコンポーネント
- * GFM（表・タスクリスト）、KaTeX数式、Mermaidダイアグラム、コードハイライト、
- * GitHub Alerts、相対画像解決などを包括的に処理します。
+ * Rust（pulldown-cmark）バックエンドで高速パースし、
+ * GFM、KaTeX数式、Mermaidダイアグラム、シンタックスハイライト、
+ * GitHub Alerts、相対画像解決を包括的に処理します。
  */
 export const MarkdownView: React.FC<MarkdownViewProps> = React.memo(
   ({ content, parentDir, zoomLevel, onHeadingsExtracted }) => {
     const containerRef = useRef<HTMLDivElement>(null);
+    const [renderedHtml, setRenderedHtml] = useState<string>('');
 
     /**
-     * レンダリング完了後にDOMから実際の見出し要素（h1〜h6）を直接走査・抽出し、
-     * 目次（TOC）との100%正確なリンクを構築します。
+     * Rust の pulldown-cmark バックエンドを呼び出して HTML 文字列を取得
      */
     useEffect(() => {
-      const timer = setTimeout(() => {
-        if (!containerRef.current || !onHeadingsExtracted) return;
+      let isMounted = true;
 
-        const headingElements = containerRef.current.querySelectorAll<HTMLElement>(
-          'h1, h2, h3, h4, h5, h6'
-        );
-
-        const items: TocItem[] = [];
-        headingElements.forEach((el, index) => {
-          // IDが存在しない場合は自動連番を割り当て
-          if (!el.id) {
-            el.id = `heading-auto-${index + 1}`;
+      invoke<string>('render_markdown', { content })
+        .then((html) => {
+          if (isMounted) {
+            setRenderedHtml(html);
           }
-          const level = parseInt(el.tagName.replace('H', ''), 10) || 1;
-          const text = el.textContent?.trim() || `セクション ${index + 1}`;
-
-          items.push({
-            id: el.id,
-            text,
-            level,
-          });
+        })
+        .catch((err) => {
+          console.error('Markdown のパースに失敗しました:', err);
+          if (isMounted) {
+            // エラー時のフォールバック
+            setRenderedHtml(`<pre><code>${content}</code></pre>`);
+          }
         });
 
-        // 親コンポーネントへ抽出した見出し一覧を通知
-        onHeadingsExtracted(items);
-      }, 80);
-
-      return () => clearTimeout(timer);
-    }, [content, onHeadingsExtracted]);
+      return () => {
+        isMounted = false;
+      };
+    }, [content]);
 
     /**
      * リンククリック時のハンドリング
      * - ページ内アンカー（#heading）: スムーズスクロール
      * - 外部リンク（http/https/mailto）: 外部ブラウザで安全に開く
      */
-    const handleLinkClick = React.useCallback(
+    const handleLinkClick = useCallback(
       async (e: React.MouseEvent<HTMLAnchorElement>, href?: string) => {
         if (!href) return;
 
@@ -156,97 +135,49 @@ export const MarkdownView: React.FC<MarkdownViewProps> = React.memo(
     );
 
     /**
-     * ReactMarkdown 用のカスタムコンポーネントマップ（parentDir 変更時のみ再生成）
+     * HTML 文字列から React 要素ツリー（ReactNode配列）を生成
      */
-    const components = React.useMemo(
-      () => ({
-        // コードブロックおよび Mermaid のカスタムレンダリング
-        code({ className, children, ...props }: any) {
-          const match = /language-(\w+)/.exec(className || '');
-          const language = match ? match[1] : '';
-          const codeString = String(children).replace(/\n$/, '');
+    const reactElements = useMemo(() => {
+      return domToReact(renderedHtml, {
+        parentDir,
+        onLinkClick: handleLinkClick,
+        LocalImageComponent: LocalImage,
+      });
+    }, [renderedHtml, parentDir, handleLinkClick]);
 
-          // Mermaid ダイアグラムの場合
-          if (language === 'mermaid') {
-            return <MermaidBlock chart={codeString} />;
+    /**
+     * レンダリング完了後に DOM から実際の見出し要素（h1〜h6）を直接走査・抽出し、
+     * 目次（TOC）とのリンクを構築します。
+     */
+    useEffect(() => {
+      const timer = setTimeout(() => {
+        if (!containerRef.current || !onHeadingsExtracted) return;
+
+        const headingElements = containerRef.current.querySelectorAll<HTMLElement>(
+          'h1, h2, h3, h4, h5, h6'
+        );
+
+        const items: TocItem[] = [];
+        headingElements.forEach((el, index) => {
+          if (!el.id) {
+            el.id = `heading-auto-${index + 1}`;
           }
+          const level = parseInt(el.tagName.replace('H', ''), 10) || 1;
+          const text = el.textContent?.trim() || `セクション ${index + 1}`;
 
-          // 複数行コードブロックの場合
-          const isCodeBlock = match || String(children).includes('\n');
-          if (isCodeBlock) {
-            return (
-              <CodeBlock language={language} value={codeString}>
-                {children}
-              </CodeBlock>
-            );
-          }
+          items.push({
+            id: el.id,
+            text,
+            level,
+          });
+        });
 
-          // インラインコードの場合
-          return (
-            <code className={className} {...props}>
-              {children}
-            </code>
-          );
-        },
+        // 親コンポーネントへ抽出した見出し一覧を通知
+        onHeadingsExtracted(items);
+      }, 80);
 
-        // 引用（blockquote）および GitHub Alerts 構文のカスタムレンダリング
-        blockquote({ children }: any) {
-          const childrenArray = React.Children.toArray(children);
-          const firstChild = childrenArray[0];
-
-          if (
-            React.isValidElement<{ children?: React.ReactNode }>(firstChild) &&
-            firstChild.props &&
-            firstChild.props.children
-          ) {
-            const innerText = React.Children.toArray(firstChild.props.children)
-              .map((c) => (typeof c === 'string' ? c : ''))
-              .join('')
-              .trim();
-
-            // [!NOTE], [!TIP], [!IMPORTANT], [!WARNING], [!CAUTION] を判定
-            const alertMatch = /^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]/i.exec(innerText);
-
-            if (alertMatch) {
-              const alertType = alertMatch[1].toLowerCase() as AlertType;
-              const cleanedChildren = React.Children.map(firstChild.props.children, (child) => {
-                if (typeof child === 'string') {
-                  return child.replace(/^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]/i, '').trim();
-                }
-                return child;
-              });
-
-              const updatedFirstChild = React.cloneElement(firstChild, {}, cleanedChildren);
-              const remainingChildren = childrenArray.slice(1);
-
-              return (
-                <AlertBlock type={alertType}>
-                  {updatedFirstChild}
-                  {remainingChildren}
-                </AlertBlock>
-              );
-            }
-          }
-
-          return <blockquote>{children}</blockquote>;
-        },
-
-        // 画像要素（ローカル相対パスの自動解決対応）
-        img({ src, alt, title }: any) {
-          return <LocalImage src={src} alt={alt} title={title} parentDir={parentDir} />;
-        },
-
-        // リンク要素（安全な外部リンクオープナー連携）
-        a({ href, children, ...props }: any) {
-          return (
-            <a href={href} onClick={(e) => handleLinkClick(e, href)} {...props}>
-              {children}
-            </a>
-          );
-        },
-      }),
-      [parentDir, handleLinkClick]
-    );
+      return () => clearTimeout(timer);
+    }, [reactElements, onHeadingsExtracted]);
 
     return (
       <div
@@ -257,17 +188,12 @@ export const MarkdownView: React.FC<MarkdownViewProps> = React.memo(
           transformOrigin: 'top center',
         }}
       >
-        <ReactMarkdown
-          remarkPlugins={REMARK_PLUGINS}
-          rehypePlugins={REHYPE_PLUGINS}
-          components={components}
-        >
-          {content}
-        </ReactMarkdown>
+        {reactElements}
       </div>
     );
   }
 );
 
 MarkdownView.displayName = 'MarkdownView';
+
 

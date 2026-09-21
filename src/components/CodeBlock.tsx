@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
+import hljs from 'highlight.js';
 import { Check, Copy } from './icons';
 
 interface CodeBlockProps {
@@ -6,7 +7,7 @@ interface CodeBlockProps {
   language: string;
   /** コードの文字列 */
   value: string;
-  /** ハイライト済みのReact要素 */
+  /** ハイライト済みのReact要素（オプショナル） */
   children?: React.ReactNode;
 }
 
@@ -17,6 +18,23 @@ interface CodeBlockProps {
 export const CodeBlock: React.FC<CodeBlockProps> = React.memo(
   ({ language, value, children }) => {
     const [copied, setCopied] = useState(false);
+
+    // highlight.js を直接呼び出してコードハイライト HTML を生成
+    const highlightedHtml = useMemo(() => {
+      if (!value) return '';
+      if (language && hljs.getLanguage(language)) {
+        try {
+          return hljs.highlight(value, { language }).value;
+        } catch {
+          // 指定言語で失敗した場合は自動検出へフォールバック
+        }
+      }
+      try {
+        return hljs.highlightAuto(value).value;
+      } catch {
+        return '';
+      }
+    }, [language, value]);
 
     /**
      * クリップボードへのコピー処理
@@ -58,7 +76,14 @@ export const CodeBlock: React.FC<CodeBlockProps> = React.memo(
 
         {/* ハイライト済みコード本文 */}
         <pre>
-          <code>{children || value}</code>
+          {highlightedHtml ? (
+            <code
+              className={`hljs ${language ? `language-${language}` : ''}`}
+              dangerouslySetInnerHTML={{ __html: highlightedHtml }}
+            />
+          ) : (
+            <code>{children || value}</code>
+          )}
         </pre>
       </div>
     );

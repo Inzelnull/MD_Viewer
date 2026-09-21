@@ -8,58 +8,70 @@
 [![License](https://img.shields.io/badge/License-MIT-brightgreen.svg)](LICENSE)
 
 Visual Studio Code の Markdown Preview のような、リッチで高速なMarkdown閲覧専用デスクトップGUIアプリケーションです。
-**Tauri v2** + **React** + **TypeScript** + **Vite** で構築されており、個人製ライブラリを極力排除した高セキュリティ・低依存アーキテクチャを採用しています。
+**Tauri v2** + **Rust (pulldown-cmark)** + **React** + **TypeScript** + **Vite** で構築されており、個人製・過度に細分化されたライブラリを極力排除した高セキュリティ・低依存アーキテクチャを採用しています。
 
 ---
 
 ## ✨ 主な機能
 
-1. **リッチなMarkdownレンダリング (GFM対応・高効率パイプライン)**
+1. **リッチなMarkdownレンダリング (Rust公式基盤 pulldown-cmark 採用)**
+   - **Rust バックエンドパース**: `rustdoc` 公式採用の `pulldown-cmark` による超高速・メモリ安全な構文解析
    - GitHub Flavored Markdown（テーブル、タスクリスト、取り消し線など）
    - VS Code風のシンタックスハイライト付きコードブロック（言語バッジ、ワンクリックコードコピー）
    - GitHub Alerts (`> [!NOTE]`, `> [!TIP]`, `> [!IMPORTANT]`, `> [!WARNING]`, `> [!CAUTION]`)
    - LaTeX 数式レンダリング（KaTeX対応: インライン `$E=mc^2$`、ブロック `$$\int...$$`）
    - Mermaid ダイアグラム描画（フローチャート、シーケンス図等）
    - 相対パス画像・ローカル画像の自動解決・表示
-   - プラグイン固定化・コンポーネントメモ化による AST 再パース最小化設計
+   - ブラウザ標準 `DOMParser` を活用した自作トランスフォーマーによる軽量レンダリング
 2. **複数タブ閲覧 & ドラッグ＆ドロップ並び替え (Multi-Tab & Drag Reorder)**
    - 複数のMarkdownファイルをタブで並列に開いて瞬時に切り替え
    - **タブをクリック＆ドラッグして直感的に並び順序を入れ替え**（インジケーター線表示）
    - タブの個別クローズ、他タブ一括クローズ、中クリック（ホイールクリック）で閉じる
    - 直前に閉じたタブの復元 (`Ctrl+Shift+T` / コンテキストメニュー)
    - 同名ファイルを開いた場合の親フォルダ名自動識別ヒント表示
-3. **目次 (Table of Contents) サイドバー**
+3. **ファイル関連付け & ダブルクリック起動対応 (File Associations)**
+   - **macOS Finder**: Markdownファイルをダブルクリックして直接起動・自動オープン（Apple Events `RunEvent::Opened` 対応）
+   - **Windows エクスプローラー**: ファイル関連付けによる直接起動および単一起動（Single Instance）連携
+   - ウィンドウへのドラッグ＆ドロップによる即時オープン
+4. **目次 (Table of Contents) サイドバー**
    - 文書内の見出し（H1〜H6）を自動抽出し階層表示
    - クリックで該当見出しへスムーズスクロール、スクロール位置連動アクティブハイライト
    - `requestAnimationFrame` スロットリングによる高リフレッシュレートでの滑らかなスクロール
    - ファイルサイズ、行数、単語数、文字数、最終更新日時のリアルタイム統計表示（ゼロアロケーション・単一パス集計）
-4. **文書内検索 (In-Document Search)**
+5. **文書内検索 (In-Document Search)**
    - `Ctrl+F` による高速キーワード検索、一致件数のリアルタイム集計表示
    - 前後の一致箇所へのジャンプ（`Enter` / `Shift+Enter` / 上下矢印ボタン）
-5. **ファイル監視 & 自動更新 (Live Watch)**
+6. **ファイル監視 & 自動更新 (Live Watch)**
    - 外部エディタ（VS Code、メモ帳など）でMarkdownを保存すると、ビューワー側が自動で検知・同期
    - 監視スレッド内のバッファ再利用によるアイドル時アロケーションゼロ設計
-6. **テーマ切り替え & 永続化**
+7. **テーマ切り替え & 永続化**
    - **システム設定に合わせる（デフォルト）**（OSのダーク/ライトモードに連動）
    - **ホワイトモード** / **ダークモード**
    - 設定は次回起動時にも自動で引き継がれます
-7. **デュアルディスプレイ・マルチモニター対応**
-   - 起動元フォルダー（エクスプローラー）があるディスプレイを自動検出し、その画面の中央に起動
-8. **サプライチェーン・セキュリティ配慮設計**
-   - 個人クレート（`rfd`, `notify`, `base64`, `mime_guess`）やアイコンパッケージ（`lucide-react`）を完全撤廃し、Rust標準／OS標準API／自作SVGコンポーネントへ置換
-
+8. **デュアルディスプレイ・マルチモニター対応**
+   - 起動元フォルダーがあるディスプレイを自動検出し、その画面の中央に起動
+9. **徹底したサプライチェーン・セキュリティ**
+   - `unifiedjs / wooorm` の 7 パッケージ（推移的依存含め 134 パッケージ）を完全排除
+   - 個人製クレート（`rfd`, `notify`, `base64`, `mime_guess`）やアイコンパッケージ（`lucide-react`）を完全撤廃し、Rust標準／OS標準API／自作SVGコンポーネントへ置換
 
 ---
 
 ## 💾 実行ファイル・インストーラーの配置場所
 
-プロダクションビルド済みの実行ファイルおよびインストーラーは、以下のパスに出力されます。
+プロダクションビルド済みの実行ファイルおよびインストーラーは、各プラットフォームごとに以下のパスに出力されます。
 
+### Windows 向け
 | 種別 | パス | 説明 |
 | :--- | :--- | :--- |
 | **単体実行ファイル (ポータブル版)** | [`src-tauri/target/release/md-viewer.exe`](./src-tauri/target/release/md-viewer.exe) | インストール不要で即時起動可能なスタンドアロンEXE |
 | **NSIS インストーラー** | [`src-tauri/target/release/bundle/nsis/md-viewer_0.1.0_x64-setup.exe`](./src-tauri/target/release/bundle/nsis/md-viewer_0.1.0_x64-setup.exe) | 標準的なWindows向けセットアップインストーラー |
 | **WiX / MSI インストーラー** | [`src-tauri/target/release/bundle/msi/md-viewer_0.1.0_x64_en-US.msi`](./src-tauri/target/release/bundle/msi/md-viewer_0.1.0_x64_en-US.msi) | 企業導入や一括配布に適したWindows Installerパッケージ |
+
+### macOS 向け
+| 種別 | パス | 説明 |
+| :--- | :--- | :--- |
+| **macOS アプリケーション** | [`src-tauri/target/release/bundle/macos/md-viewer.app`](./src-tauri/target/release/bundle/macos/md-viewer.app) | macOS向けアプリケーションバンドル |
+| **macOS DMG インストーラー** | [`src-tauri/target/release/bundle/dmg/md-viewer_0.1.0_aarch64.dmg`](./src-tauri/target/release/bundle/dmg/md-viewer_0.1.0_aarch64.dmg) | ドラッグ＆ドロップインストール用DMGイメージ |
 
 ---
 
@@ -90,7 +102,7 @@ MD_Viewer/
 │   ├── assets/                   # 静的アセット（画像等）
 │   ├── components/               # UIコンポーネント
 │   │   ├── AlertBlock.tsx        # GitHub Alerts表示コンポーネント
-│   │   ├── CodeBlock.tsx         # シンタックスハイライト・コードブロック
+│   │   ├── CodeBlock.tsx         # シンタックスハイライト・コードブロック (highlight.js連携)
 │   │   ├── Header.tsx            # アプリケーションヘッダー・ツールバー
 │   │   ├── MarkdownView.tsx      # Markdownプレビュー描画領域
 │   │   ├── MermaidBlock.tsx      # Mermaid図描画コンポーネント
@@ -98,7 +110,7 @@ MD_Viewer/
 │   │   ├── Sidebar.tsx           # 目次 (TOC) ・文書統計サイドバー
 │   │   ├── TabBar.tsx            # ドラッグ＆ドロップ対応タブバー
 │   │   ├── WelcomeView.tsx       # ファイル未読込時のウェルカム画面
-│   │   └── icons.tsx             # 自作SVGアイコン定義群
+│   │   └── icons.tsx             # 自作SVGアイコン定義群 (サードパーティ非依存)
 │   ├── styles/                   # スタイルシート (CSS)
 │   │   ├── components.css        # 各UIコンポーネント用スタイル
 │   │   ├── markdown.css          # Markdownレンダリング用スタイル
@@ -106,6 +118,7 @@ MD_Viewer/
 │   ├── types/                    # TypeScript 型定義
 │   │   └── markdown.ts           # タブ、目次、設定等の型定義
 │   ├── utils/                    # ユーティリティ関数
+│   │   ├── domToReact.tsx        # 標準DOMParserベースのHTML→ReactNodeトランスフォーマー
 │   │   ├── sampleMarkdown.ts     # 初期表示用サンプルMarkdown
 │   │   └── toc.ts                # 目次抽出・統計計算ユーティリティ
 │   ├── App.tsx                   # メインアプリケーションコンポーネント
@@ -116,10 +129,12 @@ MD_Viewer/
 │   ├── capabilities/             # Tauri v2 権限・ケイパビリティ設定
 │   ├── icons/                    # アプリアイコンリソース
 │   ├── src/
-│   │   ├── lib.rs                # ネイティブバックエンド処理 (ファイル監視/ダイアログ/モニタ配置等)
+│   │   ├── lib.rs                # ネイティブ処理 (pulldown-cmarkパース/ファイル監視/ファイル関連付け)
 │   │   └── main.rs               # Rustエントリーポイント
-│   ├── Cargo.toml                # Rust依存関係定義
-│   └── tauri.conf.json           # Tauri設定ファイル
+│   ├── tests/                    # バックエンド単体・結合テスト
+│   │   └── markdown_test.rs      # pulldown-cmark HTML出力テスト
+│   ├── Cargo.toml                # Rust依存関係定義 (pulldown-cmark追加)
+│   └── tauri.conf.json           # Tauri設定ファイル (クロスプラットフォーム対応)
 │
 ├── LICENSE                       # MITライセンス
 ├── LICENSE_AUDIT.md              # ライセンス監査・サプライチェーン監査記録
@@ -135,20 +150,20 @@ MD_Viewer/
 
 ### 動作前提条件
 - **Node.js**: v18+
-- **Rust**: 1.75+ (MSVC ツールチェーン)
+- **Rust**: 1.75+
 
 ### 開発起動
 ```bash
 # 依存関係のインストール
-npm.cmd install
+npm install
 
 # 開発モード起動 (Vite + Tauri)
-npm.cmd run tauri dev
+npm run tauri dev
 ```
 
 ### プロダクションビルド
 ```bash
-npm.cmd run tauri build
+npm run tauri build
 ```
 ビルド完了後、上記の「実行ファイル・インストーラーの配置場所」に各バイナリが生成されます。
 

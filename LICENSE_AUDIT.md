@@ -1,7 +1,7 @@
 # ライセンス適合性・監査結果報告書 (License Audit Report)
 
 **プロジェクト名**: Markdown Preview GUI Viewer (`md-viewer`)  
-**最終監査実施日**: 2026年9月16日  
+**最終監査実施日**: 2026年9月21日  
 **監査対象バージョン**: 0.1.0  
 **判定結果**: **適合（問題なし / PASSED）**
 
@@ -15,7 +15,9 @@
 * **強いコピーレフト（GPL / AGPL / SSPL 等）の混入**: **0件（なし）**
 * **ソースコード開示義務の発生**: **なし**
 * **商用利用・再配布の可否**: **可能**
-* **サプライチェーンセキュリティ**: 個人・小規模管理クレート（`rfd`, `notify`, `base64`, `mime_guess`）および `lucide-react` をRust標準・OS標準API・自前SVGコンポーネントへ置き換えて排除し、信頼性の高い主要財団・企業主導パッケージに厳選。
+* **サプライチェーンセキュリティ**:
+  - `unifiedjs / wooorm` が管理する 7 パッケージ（および推移的依存 134 パッケージ）を完全排除し、Google / Rust Core 公式基盤の `pulldown-cmark`（MIT）+ ブラウザ標準 `DOMParser` トランスフォーマーへ移行。特定個人への集中依存および脆弱性リスクを根絶。
+  - 個人・小規模管理クレート（`rfd`, `notify`, `base64`, `mime_guess`）および `lucide-react` をRust標準・OS標準API・自前SVGコンポーネントへ置き換えて排除し、信頼性の高い主要財団・企業主導パッケージに厳選。
 * **結論**: GitHub等のパブリック／プライベートリポジトリへのアップロードおよびバイナリ配布に関して、**ライセンスおよび運用上の問題はありません**。
 
 ---
@@ -54,7 +56,7 @@ Cargo によって解決される全クレートのライセンス集計結果�
 | ライセンス種別 | 備考・適合性 |
 | :--- | :--- |
 | **MIT OR Apache-2.0** | デュアルライセンス（MIT/Apache選択可） |
-| **MIT** | 寛容型 |
+| **MIT** | 寛容型（`pulldown-cmark` 含む） |
 | **Apache-2.0** | 寛容型 |
 | **MPL-2.0** | 弱コピーレフト（ファイル単位）。直接改変しない限り全体への波及なし |
 
@@ -63,12 +65,12 @@ Cargo によって解決される全クレートのライセンス集計結果�
 ## 4. 配布・公開時の要件まとめ
 
 1. **著作権・ライセンス表示**:
-   * [THIRD_PARTY_LIBRARIES.md](file:///d:/My%20Documents/Antigravity/MD_Viewer/THIRD_PARTY_LIBRARIES.md) に主要サードパーティ製ライブラリのライセンス表記が記載されています。
+   * [THIRD_PARTY_LIBRARIES.md](./THIRD_PARTY_LIBRARIES.md) に主要サードパーティ製ライブラリのライセンス表記が記載されています。
 2. **本プロジェクト自体のライセンス**:
-   * リポジトリルートに [LICENSE](file:///d:/My%20Documents/Antigravity/MD_Viewer/LICENSE)（MIT License）が配置されています。
+   * リポジトリルートに [LICENSE](./LICENSE)（MIT License）が配置されています。
 
 ---
 
-*記録更新日: 2026-09-16*  
+*記録更新日: 2026-09-21*  
 *監査担当: Antigravity Automated License Auditor*
 

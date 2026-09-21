@@ -568,31 +568,44 @@ export function App() {
   }, [multiTabEnabled]);
 
   /**
-   * アプリ起動時にコマンドライン引数（Windowsファイル関連付けなど）で渡されたファイルを確認して読み込み
+   * ファイルオープン要求のリスナー設定および起動時保留ファイルの一括読み込み
+   * macOS の Finder ダブルクリック（Apple Events）および Windows のファイル関連付け／シングルインスタンス連携を処理
    */
   useEffect(() => {
-    invoke<string | null>('get_initial_file')
-      .then((initialFile) => {
-        if (initialFile) {
-          loadFileByPath(initialFile);
-        }
-      })
-      .catch((err) => {
-        console.warn('初期ファイルの取得に失敗しました:', err);
-      });
-  }, [loadFileByPath]);
+    let isMounted = true;
 
-  /**
-   * 既にアプリが起動している状態で別のmdファイルを開いた時（シングルインスタンス連携）のリスナー
-   */
-  useEffect(() => {
+    // 1. まず実行中のファイルオープンイベントリスナーを登録
     const unlistenPromise = listen<string>('open-file-requested', async (event) => {
-      if (event.payload) {
+      if (event.payload && isMounted) {
         await loadFileByPath(event.payload);
       }
     });
 
+    // 2. リスナー登録後、起動時に保留されていたファイル（ダブルクリック起動等）を一括取得して読み込み
+    const fetchPendingFiles = async () => {
+      try {
+        const files = await invoke<string[]>('get_pending_files');
+        if (!isMounted || !files || files.length === 0) return;
+        for (const filePath of files) {
+          await loadFileByPath(filePath);
+        }
+      } catch (err) {
+        console.warn('保留中ファイルの取得に失敗しました:', err);
+      }
+    };
+
+    fetchPendingFiles();
+
+    // macOS の起動時イベント到着遅延を考慮した再確認（初回マウント直後のフォールバック）
+    const timer = setTimeout(() => {
+      if (isMounted) {
+        fetchPendingFiles();
+      }
+    }, 300);
+
     return () => {
+      isMounted = false;
+      clearTimeout(timer);
       unlistenPromise.then((unlisten) => unlisten());
     };
   }, [loadFileByPath]);

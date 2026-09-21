@@ -42,8 +42,14 @@ impl Default for WatcherState {
     }
 }
 
-/// アプリ起動時にコマンドライン引数として渡されたファイルパスを保持する構造体
-pub struct InitialFileState(pub Mutex<Option<String>>);
+/// アプリ起動時または実行中に渡されたファイルパスキュー（macOS double-click や Windows 関連付け対応）
+pub struct PendingFilesState(pub Arc<Mutex<Vec<String>>>);
+
+impl Default for PendingFilesState {
+    fn default() -> Self {
+        Self(Arc::new(Mutex::new(Vec::new())))
+    }
+}
 
 /// OSネイティブのファイル選択ダイアログを開き、選択されたMarkdown/テキストファイルのパスを返します。
 /// （サードパーティクレートを使わずOS標準のPowerShell / Win32インターフェース経由で安全に実行）
@@ -82,11 +88,28 @@ if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
     None
 }
 
-/// アプリ起動時の引数（ファイル関連付け起動）として渡された初期ファイルパスを取得します。
+/// アプリ起動時に渡された未処理のファイルパス一覧を取得してキューを空にします。
 #[tauri::command]
-fn get_initial_file(state: State<'_, InitialFileState>) -> Option<String> {
-    let mut guard = state.0.lock().ok()?;
-    guard.take()
+fn get_pending_files(state: State<'_, PendingFilesState>) -> Vec<String> {
+    if let Ok(mut guard) = state.0.lock() {
+        std::mem::take(&mut *guard)
+    } else {
+        Vec::new()
+    }
+}
+
+/// 互換用: アプリ起動時の初期ファイルパスを1件取得します。
+#[tauri::command]
+fn get_initial_file(state: State<'_, PendingFilesState>) -> Option<String> {
+    if let Ok(mut guard) = state.0.lock() {
+        if !guard.is_empty() {
+            Some(guard.remove(0))
+        } else {
+            None
+        }
+    } else {
+        None
+    }
 }
 
 /// 指定されたパスのMarkdownファイルを読み込み、内容・ファイル名・親ディレクトリ・更新日時を返します。
@@ -332,15 +355,56 @@ mod win_cursor {
     }
 }
 
+/// ファイルオープン要求を処理し、保留キューへの追加とフロントエンドへのイベント送信を行います
+fn notify_file_opened(app: &AppHandle, path: &str) {
+    let p = Path::new(path);
+    if !p.exists() {
+        return;
+    }
+    let abs_path = match p.canonicalize() {
+        Ok(canon) => {
+            let s = canon.to_string_lossy().to_string();
+            // WindowsのUNCプレフィックス (\\?\) を除去
+            #[cfg(target_os = "windows")]
+            {
+                s.strip_prefix(r"\\?\").unwrap_or(&s).to_string()
+            }
+            #[cfg(not(target_os = "windows"))]
+            {
+                s
+            }
+        }
+        Err(_) => path.to_string(),
+    };
+
+    if let Some(state) = app.try_state::<PendingFilesState>() {
+        if let Ok(mut guard) = state.0.lock() {
+            if !guard.contains(&abs_path) {
+                guard.push(abs_path.clone());
+            }
+        }
+    }
+    let _ = app.emit("open-file-requested", &abs_path);
+
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.show();
+        let _ = window.set_focus();
+    }
+}
+
 /// Tauri アプリケーションの初期化と起動
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let args: Vec<String> = env::args().collect();
-    let initial_file = extract_target_file_from_args(&args);
+    let initial_pending = match extract_target_file_from_args(&args) {
+        Some(path) => vec![path],
+        None => Vec::new(),
+    };
+    let pending_state = PendingFilesState(Arc::new(Mutex::new(initial_pending)));
 
-    tauri::Builder::default()
+    let app = tauri::Builder::default()
         .manage(WatcherState::default())
-        .manage(InitialFileState(Mutex::new(initial_file)))
+        .manage(pending_state)
         .setup(|app| {
             if let Some(window) = app.get_webview_window("main") {
                 #[cfg(target_os = "windows")]
@@ -370,7 +434,7 @@ pub fn run() {
 
                                 let _ = window.set_position(tauri::Position::Physical(
                                     tauri::PhysicalPosition::new(x, y),
-                                ));
+                                 ));
                             } else {
                                 let _ = window.center();
                             }
@@ -391,23 +455,56 @@ pub fn run() {
         })
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
             if let Some(file_path) = extract_target_file_from_args(&args) {
-                let _ = app.emit("open-file-requested", file_path);
-            }
-            if let Some(window) = app.get_webview_window("main") {
-                let _ = window.show();
-                let _ = window.set_focus();
+                notify_file_opened(app, &file_path);
             }
         }))
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             open_file_dialog,
             get_initial_file,
+            get_pending_files,
             read_markdown_file,
             read_local_asset,
             start_watch_file,
             unwatch_file,
-            stop_watch_file
+            stop_watch_file,
+            render_markdown
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application");
+
+    app.run(|app_handle, event| {
+        if let tauri::RunEvent::Opened { urls } = event {
+            for url in urls {
+                if let Ok(file_path) = url.to_file_path() {
+                    let path_str = file_path.to_string_lossy().to_string();
+                    notify_file_opened(app_handle, &path_str);
+                }
+            }
+        }
+    });
 }
+
+/// pulldown-cmark を使用して Markdown を HTML 文字列にパース・変換するコア関数
+pub fn parse_markdown_to_html(content: &str) -> String {
+    use pulldown_cmark::{html, Options, Parser};
+
+    let mut options = Options::empty();
+    options.insert(Options::ENABLE_TABLES);
+    options.insert(Options::ENABLE_TASKLISTS);
+    options.insert(Options::ENABLE_STRIKETHROUGH);
+    options.insert(Options::ENABLE_MATH);
+    options.insert(Options::ENABLE_HEADING_ATTRIBUTES);
+
+    let parser = Parser::new_ext(content, options);
+    let mut html_output = String::with_capacity(content.len() * 3 / 2);
+    html::push_html(&mut html_output, parser);
+    html_output
+}
+
+/// フロントエンドから呼び出される Tauri コマンド
+#[tauri::command]
+fn render_markdown(content: String) -> Result<String, String> {
+    Ok(parse_markdown_to_html(&content))
+}
+
