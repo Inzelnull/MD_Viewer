@@ -16,7 +16,6 @@
 | **pulldown-cmark** | `^0.13` | CommonMark準拠の超高速・安全なMarkdown構文解析エンジン（rustdoc採用基盤） | Raph Levien (Google) / Rust Core Community | MIT |
 | **serde** | `^1.0` | Rust データ構造のシリアライズ / デシリアライズ | Rust Core Team / dtolnay | MIT or Apache-2.0 |
 | **serde_json** | `^1.0` | JSON データのシリアライズ / パース | Rust Core Team / dtolnay | MIT or Apache-2.0 |
-
 | **syntect** | `^5.3` | Sublime Text互換の高速・安全なシンタックスハイライトエンジン（Pure Rust構成 / `bat` 等で採用） | Tristan Hume / syntect team | MIT |
 
 > **自前化・標準API化により排除したクレート**:
