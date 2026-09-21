@@ -480,12 +480,13 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("error while building tauri application");
 
-    app.run(|app_handle, event| {
-        if let tauri::RunEvent::Opened { urls } = event {
+    app.run(|_app_handle, _event| {
+        #[cfg(any(target_os = "macos", target_os = "ios"))]
+        if let tauri::RunEvent::Opened { urls } = _event {
             for url in urls {
                 if let Ok(file_path) = url.to_file_path() {
                     let path_str = file_path.to_string_lossy().to_string();
-                    notify_file_opened(app_handle, &path_str);
+                    notify_file_opened(_app_handle, &path_str);
                 }
             }
         }
