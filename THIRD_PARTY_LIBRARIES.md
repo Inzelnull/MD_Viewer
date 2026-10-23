@@ -9,10 +9,10 @@
 
 | パッケージ名 | バージョン | 用途・説明 | 管理主体 | ライセンス |
 | :--- | :--- | :--- | :--- | :--- |
-| **tauri** | `^2.11` | デスクトップアプリケーションフレームワーク本体 | Tauri Foundation / The Commons Conservancy | MIT or Apache-2.0 |
-| **tauri-build** | `^2.6` | Tauri ビルドスクリプト用マクロ・ユーティリティ | Tauri Foundation | MIT or Apache-2.0 |
-| **tauri-plugin-opener** | `^2.5` | 外部URL・ブラウザ連携プラグイン | Tauri Foundation | MIT or Apache-2.0 |
-| **tauri-plugin-single-instance** | `^2.4` | アプリケーションの単一起動制御・外部ファイルオープン連携 | Tauri Foundation | MIT or Apache-2.0 |
+| **tauri** | `^2.12` | デスクトップアプリケーションフレームワーク本体 | Tauri Foundation / The Commons Conservancy | MIT or Apache-2.0 |
+| **tauri-build** | `^2.7` | Tauri ビルドスクリプト用マクロ・ユーティリティ | Tauri Foundation | MIT or Apache-2.0 |
+| **tauri-plugin-opener** | `^2.7` | 外部URL・ブラウザ連携プラグイン | Tauri Foundation | MIT or Apache-2.0 |
+| **tauri-plugin-single-instance** | `^2.5` | アプリケーションの単一起動制御・外部ファイルオープン連携 | Tauri Foundation | MIT or Apache-2.0 |
 | **pulldown-cmark** | `^0.13` | CommonMark準拠の超高速・安全なMarkdown構文解析エンジン（rustdoc採用基盤） | Raph Levien (Google) / Rust Core Community | MIT |
 | **serde** | `^1.0` | Rust データ構造のシリアライズ / デシリアライズ | Rust Core Team / dtolnay | MIT or Apache-2.0 |
 | **serde_json** | `^1.0` | JSON データのシリアライズ / パース | Rust Core Team / dtolnay | MIT or Apache-2.0 |
@@ -34,10 +34,10 @@
 | :--- | :--- | :--- | :--- | :--- |
 | **react** | `^19.1` | ユーザーインターフェース構築用UIライブラリ | Meta Platforms, Inc. | MIT |
 | **react-dom** | `^19.1` | React の DOM レンダリング用パッケージ | Meta Platforms, Inc. | MIT |
-| **@tauri-apps/api** | `^2.11` | Tauri IPC通信・イベントハンドリング用JSクライアント | Tauri Foundation | MIT or Apache-2.0 |
-| **@tauri-apps/plugin-opener** | `^2.5` | 外部ブラウザ・URL起動用TauriプラグインAPI | Tauri Foundation | MIT or Apache-2.0 |
-| **katex** | `^0.18` | 高速な数式レンダリングライブラリ本体・CSSフォント | Khan Academy | MIT |
-| **mermaid** | `^11.17` | テキスト記法によるダイアグラム（フローチャート、シーケンス図等）生成 | mermaid-js team | MIT |
+| **@tauri-apps/api** | `^2.12` | Tauri IPC通信・イベントハンドリング用JSクライアント | Tauri Foundation | MIT or Apache-2.0 |
+| **@tauri-apps/plugin-opener** | `^2.7` | 外部ブラウザ・URL起動用TauriプラグインAPI | Tauri Foundation | MIT or Apache-2.0 |
+| **katex** | `^0.19` | 高速な数式レンダリングライブラリ本体・CSSフォント | Khan Academy | MIT |
+| **mermaid** | `^12.2` | テキスト記法によるダイアグラム（フローチャート、シーケンス図等）生成 | mermaid-js team | MIT |
 
 > **自前化・標準API化・Rust移行により排除したパッケージ**:
 > - `highlight.js` → **Rust公式基盤の `syntect` バックエンドハイライト** へ完全移行・一掃（フロントエンドのJSサプライチェーン脆弱性リスクを根絶、UIスレッド負荷ゼロ化）
@@ -49,14 +49,14 @@
 
 | パッケージ名 | バージョン | 用途・説明 | 管理主体 | ライセンス |
 | :--- | :--- | :--- | :--- | :--- |
-| **vite** | `^8.2` | 高速なフロントエンドビルドツール・開発サーバー | Vite Team / VoidZero | MIT |
-| **typescript** | `~6.0` | 静的型付け JavaScript 言語 | Microsoft Corporation | Apache-2.0 |
+| **vite** | `^8.3` | 高速なフロントエンドビルドツール・開発サーバー | Vite Team / VoidZero | MIT |
+| **typescript** | `^7.0` | 静的型付け JavaScript 言語 | Microsoft Corporation | Apache-2.0 |
 | **@vitejs/plugin-react** | `^6.1` | Vite 用 React プラグイン | Vite Team | MIT |
-| **@tauri-apps/cli** | `^2.11` | Tauri アプリケーションのビルド・開発用 CLI | Tauri Foundation | MIT or Apache-2.0 |
+| **@tauri-apps/cli** | `^2.12` | Tauri アプリケーションのビルド・開発用 CLI | Tauri Foundation | MIT or Apache-2.0 |
 | **@types/react** | `^19.3` | React 向けの TypeScript 型定義 | DefinitelyTyped / MS Community | MIT |
 | **@types/react-dom** | `^19.3` | React DOM 向けの TypeScript 型定義 | DefinitelyTyped / MS Community | MIT |
 
 ---
 
-*最終更新日: 2026-09-21*
+*最終更新日: 2026-10-23*
 
